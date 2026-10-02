@@ -1,0 +1,226 @@
+<!--meta
+{
+  "title": "",
+  "nav": "home",
+  "bodyClass": "page-home",
+  "scripts": ["pages/home.js"],
+  "preload": [{ "href": "assets/js/vendor/three.js", "as": "script" }]
+}
+-->
+<section class="home-hero" id="flight" aria-label="The BAC 4-44ULR in flight">
+  <div class="hero-sticky">
+    <div class="hero-canvas" data-hero-canvas>
+      <div class="hero-fallback" data-hero-fallback style="background-image:url({{root}}assets/img/hero-dusk.jpg)"></div>
+    </div>
+    <div class="hero-shade" aria-hidden="true"></div>
+
+    <div class="hero-layer" data-hero-layer>
+      <div class="hero-content">
+        <div class="hero-eyebrow">
+          <span class="hero-eyebrow-line"></span>
+          <span class="hero-eyebrow-text">British Aircraft Corporation</span>
+        </div>
+        <h1 class="display hero-headline">
+          <span class="split-line"><span style="--d:.55s">Britain builds</span></span>
+          <span class="split-line"><span style="--d:.68s">the world's <em>finest</em></span></span>
+          <span class="split-line"><span style="--d:.81s">aircraft.</span></span>
+        </h1>
+        <p class="hero-sub">From the narrow-body BAC 1-11NXT to the ultra-long-range BAC 4-44ULR, every aircraft we build carries the precision, ambition and character of British engineering.</p>
+        <div class="hero-actions">
+          <a href="{{root}}fleet/" class="btn btn-primary">Explore the fleet <span class="arrow" aria-hidden="true">→</span></a>
+          <a href="{{root}}contact/" class="btn">Order enquiry</a>
+        </div>
+      </div>
+      <div class="hero-stats" aria-label="At a glance">
+        <div><div class="hero-stat-num"><span data-count="5">5</span></div><div class="hero-stat-label">Aircraft families</div></div>
+        <div><div class="hero-stat-num"><span data-count="19000" data-format="comma">19,000</span><small>km</small></div><div class="hero-stat-label">Max ULR range</div></div>
+        <div><div class="hero-stat-num"><span data-count="100">100</span><small>%</small></div><div class="hero-stat-label">British engineering</div></div>
+      </div>
+      <a class="scroll-cue" href="#fleet"><span class="scroll-cue-line"></span><span>Scroll to fly</span></a>
+      <div class="hud" aria-hidden="true">
+        <div><span class="live"></span><b>G-ULRA</b> · BAC 4-44ULR</div>
+        <div>LHR → SYD · FL410</div>
+        <div>GS <b data-hud-gs>915</b> km/h · <span data-hud-clock>19h 10m</span> remaining</div>
+      </div>
+    </div>
+
+    <div class="story" aria-live="polite">
+      <article class="chapter left" data-chapter="1">
+        <span class="chapter-num">01 / 03 — Range</span>
+        <h2>London to Sydney. <em>Nonstop.</em></h2>
+        <p>19,000 km of certified range. The 4-44ULR flies the Kangaroo Route in a single leg — no Singapore, no Dubai, no compromise.</p>
+        <div class="chapter-stat"><div><b>17,020</b><small>km great circle</small></div><div><b>19h 10m</b><small>block time</small></div></div>
+      </article>
+      <article class="chapter right" data-chapter="2">
+        <span class="chapter-num">02 / 03 — Propulsion</span>
+        <h2>Four engines. <em>Absolute redundancy.</em></h2>
+        <p>Four 225 kN ultra-high-bypass turbofans, built in Derby and SAF-100 ready. ETOPS becomes irrelevant; reliability becomes the brief.</p>
+        <div class="chapter-stat"><div><b>4 × 225</b><small>kN thrust</small></div><div><b>127,000</b><small>litres of fuel</small></div></div>
+      </article>
+      <article class="chapter left" data-chapter="3">
+        <span class="chapter-num">03 / 03 — Cabin</span>
+        <h2>Designed for the <em>twenty-first hour.</em></h2>
+        <p>Circadian lighting across 21 time zones, a 4,000 ft cabin altitude and a dedicated wellness zone. Arrive the way you departed.</p>
+        <div class="chapter-stat"><div><b>21h</b><small>max endurance</small></div><div><b>4,000 ft</b><small>cabin altitude</small></div></div>
+      </article>
+    </div>
+    <div class="story-progress" aria-hidden="true"><i></i><i></i><i></i></div>
+  </div>
+</section>
+
+<div class="ticker" aria-label="Programme status">
+  <div class="ticker-track">
+    <span class="ticker-item">1-11NXT · First metal cut at Filton</span>
+    <span class="ticker-item">2-22 · ETOPS-240 at entry into service</span>
+    <span class="ticker-item">3-33 Wideboy · Wing ultimate load test complete</span>
+    <span class="ticker-item">4-44 · 18:1 bypass ratio</span>
+    <span class="ticker-item">4-44ULR · London–Sydney nonstop</span>
+    <span class="ticker-item">Built in Bristol · Broughton · Derby</span>
+    <span class="ticker-item">1-11NXT · First metal cut at Filton</span>
+    <span class="ticker-item">2-22 · ETOPS-240 at entry into service</span>
+    <span class="ticker-item">3-33 Wideboy · Wing ultimate load test complete</span>
+    <span class="ticker-item">4-44 · 18:1 bypass ratio</span>
+    <span class="ticker-item">4-44ULR · London–Sydney nonstop</span>
+    <span class="ticker-item">Built in Bristol · Broughton · Derby</span>
+  </div>
+</div>
+
+<section class="section" id="fleet">
+  <div class="container">
+    <div class="section-head">
+      <div>
+        <span class="section-label reveal">The fleet</span>
+        <h2 class="h2"><span class="split-line"><span>Five aircraft.</span></span><span class="split-line"><span style="--d:.1s">Every <em>mission.</em></span></span></h2>
+      </div>
+      <p class="reveal">From thin domestic routes to 20-hour nonstop ultra-long-haul, the BAC family covers every commercial aviation requirement with purpose-built precision.</p>
+    </div>
+    <div class="fleet-grid reveal-group">
+      {{fleetCards}}
+    </div>
+    <p style="margin-top:2.5rem" class="reveal"><a class="link-arrow" href="{{root}}fleet/">Enter the 3D hangar <span aria-hidden="true">→</span></a></p>
+  </div>
+</section>
+
+<section class="section deep rule-top" id="engineering">
+  <div class="container grid-2">
+    <div class="eng-visual reveal" aria-hidden="true">
+      <svg viewBox="0 0 400 400">
+        <defs>
+          <radialGradient id="sg" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#C8102E" stop-opacity=".16"/><stop offset="100%" stop-color="#C8102E" stop-opacity="0"/></radialGradient>
+        </defs>
+        <circle cx="200" cy="200" r="185" fill="url(#sg)"/>
+        <circle cx="200" cy="200" r="165" fill="none" stroke="rgba(200,16,46,.22)" stroke-dasharray="3 9"><animateTransform attributeName="transform" type="rotate" from="0 200 200" to="360 200 200" dur="40s" repeatCount="indefinite"/></circle>
+        <circle cx="200" cy="200" r="125" fill="none" stroke="rgba(255,255,255,.07)" stroke-dasharray="2 6"><animateTransform attributeName="transform" type="rotate" from="360 200 200" to="0 200 200" dur="26s" repeatCount="indefinite"/></circle>
+        <line x1="30" y1="200" x2="370" y2="200" stroke="rgba(255,255,255,.05)"/><line x1="200" y1="30" x2="200" y2="370" stroke="rgba(255,255,255,.05)"/>
+        <g transform="translate(200 200) rotate(-90)" fill="none">
+          <path d="M120 0 C 112 -6, 100 -6.5, 80 -6.5 L -110 -6.5 C -120 -6, -128 -3, -132 0 C -128 3, -120 6, -110 6.5 L 80 6.5 C 100 6.5, 112 6, 120 0 Z" stroke="rgba(240,237,230,.55)" stroke-width="1.2"/>
+          <path d="M28 -6 L -14 -118 L -26 -118 L -8 -6 Z M28 6 L -14 118 L -26 118 L -8 6 Z" stroke="rgba(200,16,46,.75)" stroke-width="1"/>
+          <path d="M-14 -118 L -24 -126 L -30 -124 L -26 -118" stroke="rgba(201,168,76,.9)"/>
+          <path d="M-14 118 L -24 126 L -30 124 L -26 118" stroke="rgba(201,168,76,.9)"/>
+          <g stroke="rgba(201,168,76,.6)"><rect x="14" y="-42" width="22" height="9" rx="4"/><rect x="2" y="-80" width="20" height="8" rx="4"/><rect x="14" y="33" width="22" height="9" rx="4"/><rect x="2" y="72" width="20" height="8" rx="4"/></g>
+          <path d="M-98 -5 L -122 -44 L -129 -44 L -112 -5 Z M-98 5 L -122 44 L -129 44 L -112 5 Z" stroke="rgba(240,237,230,.35)"/>
+          <path d="M-102 -2 L -128 -2 L -126 -1 Z" stroke="rgba(240,237,230,.3)"/>
+          <line x1="-34" y1="-140" x2="-34" y2="140" stroke="rgba(200,16,46,.25)" stroke-dasharray="2 3"/>
+          <line x1="-150" y1="-128" x2="140" y2="-128" stroke="rgba(201,168,76,.18)"/>
+        </g>
+        <g fill="#C8102E">
+          <circle cx="242" cy="175" r="3"><animate attributeName="r" values="2;5;2" dur="2s" repeatCount="indefinite"/><animate attributeName="opacity" values=".9;.2;.9" dur="2s" repeatCount="indefinite"/></circle>
+          <circle cx="158" cy="175" r="3"><animate attributeName="r" values="2;5;2" dur="2.3s" repeatCount="indefinite"/><animate attributeName="opacity" values=".9;.2;.9" dur="2.3s" repeatCount="indefinite"/></circle>
+        </g>
+        <g stroke="rgba(200,16,46,.35)" fill="none"><path d="M30 30v18M30 30h18M370 30h-18M370 30v18M30 370v-18M30 370h18M370 370h-18M370 370v-18"/></g>
+        <text x="22" y="20" fill="rgba(201,168,76,.55)" font-size="8" font-family="IBM Plex Mono, monospace">BAC 4-44ULR</text>
+        <text x="22" y="392" fill="rgba(154,160,172,.45)" font-size="6.5" font-family="IBM Plex Mono, monospace">PLAN VIEW — SPAN 64.8 M — LENGTH 73.4 M</text>
+        <line x1="40" y1="60" x2="360" y2="60" stroke="rgba(200,16,46,.45)" stroke-width=".6"><animateTransform attributeName="transform" type="translate" values="0 0;0 280;0 0" dur="6s" repeatCount="indefinite"/></line>
+      </svg>
+    </div>
+    <div>
+      <span class="section-label reveal">Engineering philosophy</span>
+      <h2 class="h2" style="margin:1rem 0 1.6rem"><span class="split-line"><span>Built to</span></span><span class="split-line"><span style="--d:.1s">outlast the <em>brief.</em></span></span></h2>
+      <p class="lede reveal">Every BAC aircraft is engineered not just to meet today's operational demands, but to adapt to the routes, economics and environmental standards of the next four decades. We design for the long runway.</p>
+      <div class="pillars reveal-group">
+        <div class="pillar reveal">
+          <svg class="pillar-icon" viewBox="0 0 36 36" aria-hidden="true"><rect x="2" y="2" width="32" height="32" fill="none" stroke="rgba(200,16,46,.35)"/><path d="M18 8v20M8 18h20" stroke="#C8102E" stroke-width="1.5" stroke-linecap="round"/><circle cx="18" cy="18" r="5" fill="none" stroke="rgba(200,16,46,.6)"/></svg>
+          <div><div class="pillar-title">Composite-first construction</div><div class="pillar-desc">Over 72% of structural airframe weight in advanced carbon-fibre composites, reducing empty weight and improving fatigue resistance.</div></div>
+        </div>
+        <div class="pillar reveal">
+          <svg class="pillar-icon" viewBox="0 0 36 36" aria-hidden="true"><rect x="2" y="2" width="32" height="32" fill="none" stroke="rgba(200,16,46,.35)"/><path d="M8 26 Q14 10 18 18 Q22 26 28 10" stroke="#C8102E" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>
+          <div><div class="pillar-title">Next-generation propulsion</div><div class="pillar-desc">Ultra-high bypass ratio turbofans on every variant, with SAF-100 compatibility and hydrogen-hybrid readiness built into the architecture.</div></div>
+        </div>
+        <div class="pillar reveal">
+          <svg class="pillar-icon" viewBox="0 0 36 36" aria-hidden="true"><rect x="2" y="2" width="32" height="32" fill="none" stroke="rgba(200,16,46,.35)"/><polygon points="18,8 28,26 8,26" fill="none" stroke="#C8102E" stroke-width="1.5" stroke-linejoin="round"/><circle cx="18" cy="21" r="2" fill="#C8102E"/></svg>
+          <div><div class="pillar-title">British manufacturing</div><div class="pillar-desc">Final assembly at Bristol Filton. Wings from Broughton. Engines from Derby. Every major component from British soil.</div></div>
+        </div>
+      </div>
+      <p style="margin-top:2.4rem" class="reveal"><a class="link-arrow" href="{{root}}engineering/">Inside the engine <span aria-hidden="true">→</span></a></p>
+    </div>
+  </div>
+</section>
+
+<section class="section tight" aria-label="Programme in numbers">
+  <div class="container">
+    <div class="stats-band reveal-group">
+      <div class="stat reveal"><div class="stat-num"><span data-count="72">72</span><small>%</small></div><div class="stat-label">Composite structure by weight</div></div>
+      <div class="stat reveal"><div class="stat-num"><span data-count="18">18</span><small>:1</small></div><div class="stat-label">Bypass ratio on the 4-44</div></div>
+      <div class="stat reveal"><div class="stat-num">−<span data-count="45">45</span><small>%</small></div><div class="stat-label">Fuel burn versus the aircraft it replaces</div></div>
+      <div class="stat reveal"><div class="stat-num"><span data-count="100">100</span><small>%</small></div><div class="stat-label">SAF compatible from day one</div></div>
+    </div>
+  </div>
+</section>
+
+<section class="section ink range-teaser rule-top" aria-labelledby="range-h">
+  <div class="container grid-2">
+    <div>
+      <span class="section-label reveal">Range explorer</span>
+      <h2 class="h2" id="range-h" style="margin:1rem 0 1.6rem"><span class="split-line"><span>Anywhere to</span></span><span class="split-line"><span style="--d:.1s"><em>anywhere.</em></span></span></h2>
+      <p class="lede reveal">Pick an aircraft, pick a hub, and watch the world shrink. From London Heathrow the 4-44ULR reaches every inhabited continent nonstop.</p>
+      <ul class="route-list reveal" data-route-list>
+        <li><span class="iata">LHR → SYD</span><span>London to Sydney</span><span class="dist">17,020 km</span></li>
+        <li><span class="iata">LHR → AKL</span><span>London to Auckland</span><span class="dist">18,364 km</span></li>
+        <li><span class="iata">LHR → PER</span><span>London to Perth</span><span class="dist">14,508 km</span></li>
+        <li><span class="iata">LHR → SIN</span><span>London to Singapore</span><span class="dist">10,881 km</span></li>
+      </ul>
+      <p style="margin-top:2.4rem" class="reveal"><a class="btn btn-gold" href="{{root}}range/">Open the range explorer <span class="arrow" aria-hidden="true">→</span></a></p>
+    </div>
+    <div class="globe-mini reveal" data-globe-mini aria-label="Rotating globe showing the 4-44ULR's range from London" role="img"></div>
+  </div>
+</section>
+
+<section class="section heritage-band" aria-labelledby="heritage-h">
+  <div class="container">
+    <span class="section-label reveal" id="heritage-h">Our story</span>
+    <p class="big-quote reveal">Britain invented the jet airliner. It is time we reminded the world of that.</p>
+    <p class="attribution reveal">Sir Peter Hartley, Founding Chairman · Bristol, 2024</p>
+    <div class="h-timeline">
+      <div class="h-tl-item"><div class="h-tl-dot"></div><div class="h-tl-year">1949</div><div class="h-tl-event">de Havilland Comet makes the first jet airliner flight from Hatfield</div></div>
+      <div class="h-tl-item"><div class="h-tl-dot"></div><div class="h-tl-year">1963</div><div class="h-tl-event">The original BAC One-Eleven flies for the first time</div></div>
+      <div class="h-tl-item"><div class="h-tl-dot"></div><div class="h-tl-year">1976</div><div class="h-tl-event">Concorde enters service — the pinnacle of British aerospace</div></div>
+      <div class="h-tl-item"><div class="h-tl-dot"></div><div class="h-tl-year">2024</div><div class="h-tl-event">British Aircraft Corporation incorporated in Bristol</div></div>
+      <div class="h-tl-item"><div class="h-tl-dot"></div><div class="h-tl-year">2031</div><div class="h-tl-event">BAC 4-44ULR first flight — London to Sydney nonstop</div></div>
+    </div>
+    <p style="margin-top:4rem" class="reveal"><a class="link-arrow" href="{{root}}heritage/">The full story <span aria-hidden="true">→</span></a></p>
+  </div>
+</section>
+
+<section class="section deep rule-top" aria-labelledby="news-h">
+  <div class="container">
+    <div class="section-head">
+      <div><span class="section-label reveal">Newsroom</span><h2 class="h2" id="news-h"><span class="split-line"><span>Latest from <em>Filton.</em></span></span></h2></div>
+      <p class="reveal"><a class="link-arrow" href="{{root}}news/">All news <span aria-hidden="true">→</span></a></p>
+    </div>
+    <div class="news-grid reveal-group">
+      <a class="news-card reveal" href="{{root}}news/#first-metal"><time datetime="2026-09-15">15 Sep 2026</time><h3>First metal cut for the 1-11NXT at Filton</h3><p>Production of the first flight-test airframe begins, 62 years after the original One-Eleven took shape a few hundred metres away.</p><span class="fleet-more">Read <span aria-hidden="true">→</span></span></a>
+      <a class="news-card reveal" href="{{root}}news/#farnborough"><time datetime="2026-07-21">21 Jul 2026</time><h3>The 4-44ULR cabin, revealed at Farnborough</h3><p>A full-scale cabin mock-up debuts the wellness zone and circadian lighting system designed for 20-hour sectors.</p><span class="fleet-more">Read <span aria-hidden="true">→</span></span></a>
+      <a class="news-card reveal" href="{{root}}news/#broughton"><time datetime="2026-05-06">6 May 2026</time><h3>Wideboy wing passes ultimate load at Broughton</h3><p>The 3-33's composite wing box was taken to 150% of limit load without failure — ahead of schedule.</p><span class="fleet-more">Read <span aria-hidden="true">→</span></span></a>
+    </div>
+  </div>
+</section>
+
+<section class="cta-band" id="contact">
+  <div class="container cta-inner">
+    <h2 class="cta-text reveal">Ready to build the next chapter of aviation?</h2>
+    <div class="cta-actions reveal">
+      <a href="{{root}}contact/" class="btn btn-white">Submit order enquiry <span class="arrow" aria-hidden="true">→</span></a>
+      <a href="{{root}}assets/BAC-Fleet-Brochure.pdf" class="btn btn-outline" download>Download fleet brochure</a>
+    </div>
+  </div>
+</section>

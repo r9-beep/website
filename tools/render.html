@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>BAC model renderer</title>
+<link href="../assets/css/fonts.css" rel="stylesheet">
+<style>html,body{margin:0;height:100%;background:#1b2030}#c{position:fixed;inset:0}html.transparent,html.transparent body{background:transparent}</style>
+</head>
+<body>
+<div id="c"></div>
+<script type="module">
+// Dev/asset tool: renders a fleet model. Query: ?id=4-44ulr&view=34|side|front|top|rear|low&gear=1&w=1600&h=900&bg=transparent&night=0&xray=0
+import * as THREE from '../assets/js/vendor/three.js';
+import { FLEET_BY_ID } from '../assets/js/data/fleet.js';
+import { buildAircraft, loadLiveryFonts } from '../assets/js/lib/aircraft.js';
+import { createStage, studioLighting, fitDistance } from '../assets/js/lib/stage.js';
+const q = new URLSearchParams(location.search);
+const spec = FLEET_BY_ID[q.get('id') || '4-44ulr'];
+if (q.get('bg') === 'transparent') document.documentElement.classList.add("transparent");
+await loadLiveryFonts(4000);
+const el = document.getElementById('c');
+const stage = createStage(el, { alpha: true, preserveDrawingBuffer: true, maxDpr: 1, fov: +(q.get('fov') || 28), far: 2000 });
+studioLighting(stage, { shadows: false });
+const ac = buildAircraft(spec, { detail: 1, gear: q.get('gear') === '1' });
+stage.scene.add(ac.group);
+ac.setNight(+(q.get('night') || 0));
+if (q.get('xray') === '1') ac.setXray(true);
+ac.lightLevel = +(q.get('lights') ?? 0.5);
+ac.update(0.5, 0.016);
+const box = new THREE.Box3().setFromObject(ac.group);
+const size = box.getSize(new THREE.Vector3()), ctr = box.getCenter(new THREE.Vector3());
+const views = {
+  '34': new THREE.Vector3(0.75, 0.32, 0.82), side: new THREE.Vector3(0, 0.02, 1), front: new THREE.Vector3(1, 0.08, 0.02),
+  top: new THREE.Vector3(0.001, 1, 0.0001), rear: new THREE.Vector3(-0.8, 0.3, 0.7), low: new THREE.Vector3(0.7, -0.25, 0.75),
+  port: new THREE.Vector3(0.5, 0.25, -0.9), nose: new THREE.Vector3(0.95, 0.15, 0.45)
+};
+const v = (views[q.get('view') || '34'] || views['34']).clone().normalize();
+const d = +(q.get('dist') || 0) || fitDistance(stage.camera, new THREE.Vector3(size.x * Math.abs(v.z) + size.z * Math.abs(v.x), size.y + (v.y > 0.5 ? size.z : 0), size.x * 0.6), +(q.get('margin') || 1.05));
+stage.camera.position.copy(ctr).addScaledVector(v, d);
+stage.camera.lookAt(ctr);
+if (q.get('zoom')) { const f = q.get('zoom').split(',').map(Number); stage.camera.position.set(f[0], f[1], f[2]); stage.camera.lookAt(f[3], f[4], f[5]); }
+stage.renderOnce();
+window.__ready = true;
+</script>
+</body>
+</html>

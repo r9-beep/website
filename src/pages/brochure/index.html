@@ -1,0 +1,37 @@
+<!--meta
+{
+  "title": "Fleet Brochure",
+  "description": "The BAC fleet brochure — printable specifications for every aircraft.",
+  "nav": "",
+  "bodyClass": "page-brochure",
+  "noindex": true,
+  "noFooter": true,
+  "styles": ["assets/css/brochure.css"]
+}
+-->
+<div class="sheets">
+  <section class="sheet sheet-cover">
+    <img class="cover-img" src="{{root}}assets/img/hero-dusk.jpg" alt="">
+    <div class="cover-shade"></div>
+    <div class="cover-txt">
+      <div class="cover-brand"><svg width="54" height="54" viewBox="0 0 42 42" aria-hidden="true"><circle cx="21" cy="21" r="20" fill="none" stroke="#C8102E" stroke-width="1.5"/><circle cx="21" cy="21" r="13" fill="none" stroke="#fff"/><circle cx="21" cy="21" r="6" fill="#C8102E"/><path d="M1 21 L15 18 L15 24 Z" fill="#C8102E" opacity=".6"/><path d="M41 21 L27 18 L27 24 Z" fill="#C8102E" opacity=".6"/></svg><span>British Aircraft Corporation<small>Bristol, England</small></span></div>
+      <h1>The <em>Fleet.</em></h1>
+      <p>Five aircraft. Every mission.<br>Specifications · {{year}} edition</p>
+    </div>
+  </section>
+  {{brochureSheets}}
+  <section class="sheet sheet-compare">
+    <div class="sheet-num">07</div>
+    <span class="section-label">At a glance</span>
+    <h2>One family, side by side.</h2>
+    {{compareTable}}
+  </section>
+  <section class="sheet sheet-back">
+    <div class="back-inner">
+      <svg width="90" height="90" viewBox="0 0 42 42" aria-hidden="true"><circle cx="21" cy="21" r="20" fill="none" stroke="#C8102E" stroke-width="1.5"/><circle cx="21" cy="21" r="13" fill="none" stroke="#fff"/><circle cx="21" cy="21" r="6" fill="#C8102E"/><path d="M1 21 L15 18 L15 24 Z" fill="#C8102E" opacity=".6"/><path d="M41 21 L27 18 L27 24 Z" fill="#C8102E" opacity=".6"/></svg>
+      <h2>Ready to build the next chapter of aviation?</h2>
+      <p>Order, leasing and support enquiries<br><b>r9-beep.github.io/website/contact/</b></p>
+      <p class="small">All specifications provisional and subject to change without notice. A design concept. © {{year}} British Aircraft Corporation Ltd.</p>
+    </div>
+  </section>
+</div>

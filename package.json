@@ -1,0 +1,12 @@
+{
+  "name": "bac-website",
+  "version": "1.0.0",
+  "private": true,
+  "description": "British Aircraft Corporation — static website with procedural 3D aircraft (GitHub Pages).",
+  "type": "module",
+  "scripts": {
+    "build": "node tools/build.mjs",
+    "serve": "npx http-server -p 8080 -c-1 ."
+  },
+  "license": "UNLICENSED"
+}

@@ -1,0 +1,111 @@
+<!--meta
+{
+  "title": "Order Enquiry",
+  "description": "Start an order, leasing or support enquiry with British Aircraft Corporation, or contact our press and careers teams.",
+  "nav": "contact",
+  "bodyClass": "page-contact",
+  "scripts": ["pages/contact.js"]
+}
+-->
+<section class="page-hero">
+  <div class="grid-bg" aria-hidden="true"></div>
+  <div class="container">
+    <span class="section-label">Contact</span>
+    <h1 class="display"><span class="split-line"><span>Let's talk</span></span><span class="split-line"><span style="--d:.12s"><em>aircraft.</em></span></span></h1>
+    <p class="lede reveal">Whether you're planning a fleet, a single lease or a story, tell us a little about it and the right team will be in touch within two working days.</p>
+  </div>
+</section>
+
+<section class="section tight">
+  <div class="container contact-grid">
+    <div>
+      <form class="form" data-enquiry novalidate>
+        <div class="field full">
+          <label for="type">Enquiry type</label>
+          <select id="type" name="type" class="select" required>
+            <option value="order">New aircraft order</option>
+            <option value="leasing">Leasing</option>
+            <option value="support">MRO &amp; customer support</option>
+            <option value="press">Press &amp; media</option>
+            <option value="careers">Careers</option>
+            <option value="general">General enquiry</option>
+          </select>
+        </div>
+        <fieldset class="field full" data-aircraft-field style="border:none">
+          <legend class="flabel" style="font-family:var(--mono);font-size:.64rem;letter-spacing:.12em;text-transform:uppercase;color:var(--titanium);margin-bottom:.6rem">Aircraft of interest</legend>
+          <div class="checks">
+            <label class="check"><input type="checkbox" name="aircraft" value="1-11nxt"><span>1-11NXT</span></label>
+            <label class="check"><input type="checkbox" name="aircraft" value="2-22"><span>2-22</span></label>
+            <label class="check"><input type="checkbox" name="aircraft" value="3-33"><span>3-33 Wideboy</span></label>
+            <label class="check"><input type="checkbox" name="aircraft" value="4-44"><span>4-44</span></label>
+            <label class="check"><input type="checkbox" name="aircraft" value="4-44ulr"><span>4-44ULR</span></label>
+          </div>
+        </fieldset>
+        <div class="field" data-order-only>
+          <label for="qty">Fleet size</label>
+          <select id="qty" name="quantity" class="select"><option>1–5 aircraft</option><option>6–20 aircraft</option><option>21–50 aircraft</option><option>50+ aircraft</option></select>
+        </div>
+        <div class="field" data-order-only>
+          <label for="when">Delivery window</label>
+          <select id="when" name="delivery" class="select"><option>2028–2030</option><option>2031–2033</option><option>2034 onwards</option><option>Not sure yet</option></select>
+        </div>
+        <div class="field" data-role-field hidden>
+          <label for="role">Role</label>
+          <input id="role" name="role" class="input" autocomplete="off">
+        </div>
+        <div class="field">
+          <label for="name">Full name</label>
+          <input id="name" name="name" class="input" autocomplete="name" required>
+          <p class="field-error" data-err="name"></p>
+        </div>
+        <div class="field">
+          <label for="org">Organisation</label>
+          <input id="org" name="organisation" class="input" autocomplete="organization">
+        </div>
+        <div class="field full">
+          <label for="email">Work email</label>
+          <input id="email" name="email" type="email" class="input" autocomplete="email" required>
+          <p class="field-error" data-err="email"></p>
+        </div>
+        <div class="field full">
+          <label for="msg">Tell us about it</label>
+          <textarea id="msg" name="message" class="textarea input" required></textarea>
+          <p class="field-error" data-err="message"></p>
+        </div>
+        <label class="consent full"><input type="checkbox" name="consent" required> <span>I agree that BAC may contact me about this enquiry. We never share your details.</span></label>
+        <p class="field-error full" data-err="consent" style="margin-top:-1rem"></p>
+        <div class="full"><button type="submit" class="btn btn-primary">Send enquiry <span class="arrow" aria-hidden="true">→</span></button></div>
+      </form>
+      <div class="form-success" data-success role="status" aria-live="polite" tabindex="-1">
+        <span class="section-label">Received</span>
+        <h2>Thank you — cleared for take-off.</h2>
+        <p data-success-msg>Your enquiry is with our team, and someone will be in touch within two working days.</p>
+      </div>
+    </div>
+    <aside>
+      <span class="label-mono" style="display:block;margin-bottom:.6rem">Offices</span>
+      <div class="offices">
+        <div class="office"><h3>Bristol · Filton</h3><p>Headquarters, final assembly and flight test.<br>Filton, Bristol, England</p></div>
+        <div class="office"><h3>London</h3><p>Airline, lessor and government relations.</p></div>
+        <div class="office"><h3>Singapore</h3><p>Asia-Pacific sales and customer support centre.</p></div>
+        <div class="office"><h3>Dubai</h3><p>Middle East and Africa sales.</p></div>
+      </div>
+    </aside>
+  </div>
+</section>
+
+<section class="section ink rule-top">
+  <div class="container grid-2" style="align-items:start">
+    <div>
+      <span class="section-label reveal">FAQ</span>
+      <h2 class="h2" style="margin-top:1rem"><span class="split-line"><span>Good <em>questions.</em></span></span></h2>
+    </div>
+    <div class="faq reveal">
+      <details><summary>When is the earliest delivery slot?</summary><p>The 1-11NXT enters service in 2028, followed by the 2-22 in 2029, the 3-33 and 4-44 in 2030 and the 4-44ULR in 2032. Early-production slots are allocated in order of firm commitment.</p></details>
+      <details><summary>Do you offer leasing?</summary><p>Yes. We work with established lessors and offer direct operating leases on early-production aircraft, including flexible return conditions for launch operators.</p></details>
+      <details><summary>What does support look like?</summary><p>Every delivery includes an entry-into-service team, a 24/7 operations centre in Bristol and regional support hubs in Singapore and Dubai, with power-by-the-hour options on airframe and engines.</p></details>
+      <details><summary>Can we visit Filton?</summary><p>Customer and press visits to the final assembly line can be arranged with two weeks' notice. Use the form above and choose the closest enquiry type.</p></details>
+      <details><summary>Are you the original BAC?</summary><p>No. The original British Aircraft Corporation (1960–1977) became part of British Aerospace. We are a new company, founded in 2024, carrying the name with pride and no affiliation.</p></details>
+    </div>
+  </div>
+</section>

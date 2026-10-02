@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en-GB" id="top">
+<head>
+<meta charset="utf-8">
+<script>document.documentElement.classList.add('js');try{if(sessionStorage.getItem('bac-transition')){sessionStorage.removeItem('bac-transition');document.documentElement.classList.add('is-entering');}}catch(e){}</script>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Range Explorer — British Aircraft Corporation</title>
+<meta name="description" content="Pick a BAC aircraft and a hub, and see every city it can reach nonstop on an interactive 3D globe.">
+<meta name="theme-color" content="#0A0E1A">
+<meta name="color-scheme" content="dark">
+<link rel="canonical" href="https://r9-beep.github.io/website/range/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="British Aircraft Corporation">
+<meta property="og:title" content="Range Explorer — British Aircraft Corporation">
+<meta property="og:description" content="Pick a BAC aircraft and a hub, and see every city it can reach nonstop on an interactive 3D globe.">
+<meta property="og:url" content="https://r9-beep.github.io/website/range/">
+<meta property="og:image" content="https://r9-beep.github.io/website/assets/img/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../favicon.png" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="../assets/img/apple-touch-icon.png">
+<link rel="manifest" href="../site.webmanifest">
+<link rel="preload" href="../assets/fonts/cormorant-garamond-latin-300-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="../assets/fonts/inter-latin-300-normal.woff2" as="font" type="font/woff2" crossorigin>
+
+
+<link rel="stylesheet" href="../assets/css/fonts.css">
+<link rel="stylesheet" href="../assets/css/main.css">
+
+<script type="module" src="../assets/js/site.js"></script>
+<script type="module" src="../assets/js/pages/range.js"></script>
+</head>
+<body class="page-range" data-root="../">
+<a class="skip-link" href="#main">Skip to content</a>
+<div class="curtain" aria-hidden="true"><span><svg class="curtain-roundel" width="56" height="56" viewBox="0 0 42 42" aria-hidden="true"><circle cx="21" cy="21" r="20" fill="none" stroke="#C8102E" stroke-width="1.5"/><circle cx="21" cy="21" r="13" fill="none" stroke="currentColor" stroke-width="1"/><circle cx="21" cy="21" r="6" fill="#C8102E"/><path d="M1 21 L15 18 L15 24 Z" fill="#C8102E" opacity="0.6"/><path d="M41 21 L27 18 L27 24 Z" fill="#C8102E" opacity="0.6"/></svg></span></div>
+<header class="site-nav" data-nav>
+  <a class="nav-logo" href="../" aria-label="British Aircraft Corporation — home">
+    <svg class="nav-roundel" width="42" height="42" viewBox="0 0 42 42" aria-hidden="true"><circle cx="21" cy="21" r="20" fill="none" stroke="#C8102E" stroke-width="1.5"/><circle cx="21" cy="21" r="13" fill="none" stroke="currentColor" stroke-width="1"/><circle cx="21" cy="21" r="6" fill="#C8102E"/><path d="M1 21 L15 18 L15 24 Z" fill="#C8102E" opacity="0.6"/><path d="M41 21 L27 18 L27 24 Z" fill="#C8102E" opacity="0.6"/></svg>
+    <span class="nav-wordmark">British Aircraft Corporation<span>Est. 2024 · Bristol, England</span></span>
+  </a>
+  <nav aria-label="Primary">
+    <ul class="nav-links">
+        <li class="has-mega"><a href="../fleet/">Fleet</a>
+          <div class="mega" role="group" aria-label="Fleet">
+            <div class="mega-inner">
+            <a class="mega-item" href="../fleet/1-11nxt.html">
+              <img src="../assets/img/fleet/1-11nxt-34.webp" alt="" loading="lazy" width="320" height="180">
+              <span class="mega-name">BAC 1-11NXT</span>
+              <span class="mega-role">Narrow-body</span>
+            </a>
+            <a class="mega-item" href="../fleet/2-22.html">
+              <img src="../assets/img/fleet/2-22-34.webp" alt="" loading="lazy" width="320" height="180">
+              <span class="mega-name">BAC 2-22</span>
+              <span class="mega-role">Medium narrow-body</span>
+            </a>
+            <a class="mega-item" href="../fleet/3-33.html">
+              <img src="../assets/img/fleet/3-33-34.webp" alt="" loading="lazy" width="320" height="180">
+              <span class="mega-name">BAC 3-33</span>
+              <span class="mega-role">Wideboy widebody</span>
+            </a>
+            <a class="mega-item" href="../fleet/4-44.html">
+              <img src="../assets/img/fleet/4-44-34.webp" alt="" loading="lazy" width="320" height="180">
+              <span class="mega-name">BAC 4-44</span>
+              <span class="mega-role">Long-range widebody</span>
+            </a>
+            <a class="mega-item" href="../fleet/4-44ulr.html">
+              <img src="../assets/img/fleet/4-44ulr-34.webp" alt="" loading="lazy" width="320" height="180">
+              <span class="mega-name">BAC 4-44ULR</span>
+              <span class="mega-role">Ultra-long-range widebody</span>
+            </a>
+            </div>
+          </div>
+        </li>
+        <li><a href="../engineering/">Engineering</a></li>
+        <li><a href="../range/" aria-current="page">Range</a></li>
+        <li><a href="../heritage/">Heritage</a></li>
+        <li><a href="../news/">Newsroom</a></li>
+        <li><a href="../careers/">Careers</a></li>
+    </ul>
+  </nav>
+  <a href="../contact/" class="nav-cta">Order enquiry</a>
+  <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="mobile-menu" aria-label="Open menu"><span></span><span></span></button>
+</header>
+<div class="mobile-menu" id="mobile-menu" hidden>
+  <nav aria-label="Mobile">
+    <ol>
+      <li><a href="../">Home</a></li>
+      <li><a href="../fleet/">Fleet</a></li>
+      <li><a href="../engineering/">Engineering</a></li>
+      <li><a href="../range/" aria-current="page">Range</a></li>
+      <li><a href="../heritage/">Heritage</a></li>
+      <li><a href="../news/">Newsroom</a></li>
+      <li><a href="../careers/">Careers</a></li>
+      <li><a href="../contact/">Order enquiry</a></li>
+    </ol>
+  </nav>
+  <p class="mobile-menu-foot">Filton · Broughton · Derby</p>
+</div>
+<main id="main">
+<section class="range-app" aria-label="Range explorer">
+  <div class="globe" data-globe></div>
+  <aside class="range-panel" aria-label="Range controls">
+    <header>
+      <span class="section-label">Range explorer</span>
+      <h1>Where can it <em style="color:var(--gold)">take you?</em></h1>
+    </header>
+    <div class="range-controls">
+      <div class="field">
+        <span class="flabel" id="ac-label">Aircraft</span>
+        <div class="seg" role="group" aria-labelledby="ac-label" data-aircraft-seg></div>
+      </div>
+      <div class="field">
+        <label for="hub">Departing from</label>
+        <select id="hub" class="select" data-hub></select>
+      </div>
+    </div>
+    <div class="range-summary">
+      <div><b data-reach>—</b><small>Destinations nonstop</small></div>
+      <div><b data-range>—</b><small>Certified range (km)</small></div>
+    </div>
+    <ul class="dest-list" data-dest aria-label="Destinations"></ul>
+    <div class="route-check">
+      <div class="field"><label for="rc-to">Check a route to</label><select id="rc-to" class="select" data-rc-to></select></div>
+      <p data-rc-out style="margin-top:.8rem;line-height:1.6"></p>
+    </div>
+  </aside>
+  <div class="range-readout" aria-hidden="true"><span data-ro-name>BAC 4-44ULR</span><b data-ro-km>19,000 km</b><span data-ro-hub>from London Heathrow</span></div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-head">
+      <div><span class="section-label reveal">How far</span><h2 class="h2"><span class="split-line"><span>Longest nonstop</span></span><span class="split-line"><span style="--d:.1s">from <em>London.</em></span></span></h2></div>
+      <p class="reveal">Distances are great-circle, airport to airport. Block times assume wind-optimised routing at typical cruise speed plus taxi, climb and descent — indicative only.</p>
+    </div>
+    <div class="table-wrap reveal"><table class="compare-table" data-longest><thead><tr><th scope="col">Aircraft</th><th scope="col">Range</th><th scope="col">Longest route from LHR</th><th scope="col">Distance</th><th scope="col">Block time</th><th scope="col">Cities reached</th></tr></thead><tbody></tbody></table></div>
+  </div>
+</section>
+
+<section class="cta-band">
+  <div class="container cta-inner">
+    <h2 class="cta-text reveal">Got a route in mind?</h2>
+    <div class="cta-actions reveal">
+      <a href="../contact/" class="btn btn-white">Talk to our route analysts <span class="arrow" aria-hidden="true">→</span></a>
+      <a href="../fleet/" class="btn btn-outline">Compare the fleet</a>
+    </div>
+  </div>
+</section>
+</main>
+<footer class="site-footer">
+  <div class="footer-inner">
+    <div class="footer-brand-col">
+      <a class="footer-brand" href="../"><svg class="footer-roundel" width="36" height="36" viewBox="0 0 42 42" aria-hidden="true"><circle cx="21" cy="21" r="20" fill="none" stroke="#C8102E" stroke-width="1.5"/><circle cx="21" cy="21" r="13" fill="none" stroke="currentColor" stroke-width="1"/><circle cx="21" cy="21" r="6" fill="#C8102E"/><path d="M1 21 L15 18 L15 24 Z" fill="#C8102E" opacity="0.6"/><path d="M41 21 L27 18 L27 24 Z" fill="#C8102E" opacity="0.6"/></svg><span>British Aircraft Corporation</span></a>
+      <p class="footer-tagline">Building the aircraft that carry Britain's ambition to every corner of the world.</p>
+      <form class="newsletter" data-newsletter novalidate>
+        <label for="nl-email" class="label-mono">Programme updates</label>
+        <div class="newsletter-row">
+          <input id="nl-email" type="email" name="email" placeholder="you@airline.com" autocomplete="email" required>
+          <button type="submit" aria-label="Subscribe">→</button>
+        </div>
+        <p class="newsletter-msg" role="status" aria-live="polite"></p>
+      </form>
+    </div>
+    <div class="footer-links">
+      <div class="footer-col">
+        <h2 class="footer-col-title">Fleet</h2>
+        <ul>
+          <li><a href="../fleet/1-11nxt.html">BAC 1-11NXT</a></li>
+          <li><a href="../fleet/2-22.html">BAC 2-22</a></li>
+          <li><a href="../fleet/3-33.html">BAC 3-33</a></li>
+          <li><a href="../fleet/4-44.html">BAC 4-44</a></li>
+          <li><a href="../fleet/4-44ulr.html">BAC 4-44ULR</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h2 class="footer-col-title">Company</h2>
+        <ul>
+          <li><a href="../engineering/">Engineering</a></li>
+          <li><a href="../heritage/">Heritage</a></li>
+          <li><a href="../news/">Newsroom</a></li>
+          <li><a href="../careers/">Careers</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h2 class="footer-col-title">Orders</h2>
+        <ul>
+          <li><a href="../contact/">Fleet enquiry</a></li>
+          <li><a href="../contact/?type=leasing">Leasing</a></li>
+          <li><a href="../contact/?type=support">MRO &amp; support</a></li>
+          <li><a href="../range/">Range explorer</a></li>
+          <li><a href="../assets/BAC-Fleet-Brochure.pdf" download>Fleet brochure (PDF)</a></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <p class="footer-copy">© 2026 British Aircraft Corporation Ltd. Registered in England &amp; Wales. Bristol, England.</p>
+    <p class="footer-copy">A design concept. All aircraft specifications provisional and subject to change without notice.</p>
+    <a class="to-top" href="#top" aria-label="Back to top">↑</a>
+  </div>
+</footer>
+</body>
+</html>
