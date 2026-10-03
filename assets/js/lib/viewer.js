@@ -4,8 +4,24 @@ import { OrbitControls } from '../vendor/three.js';
 import { FLEET, FLEET_BY_ID } from '../data/fleet.js';
 import { buildAircraft, loadLiveryFonts } from './aircraft.js';
 import { createStage, studioLighting, isLowPower, prefersReducedMotion } from './stage.js';
+import { createPost } from './post.js';
 
 const easeIO = t => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+
+// Screen-space studio backdrops (match the CSS gradients so the page and canvas blend seamlessly).
+function backdrop(stops, cx = 0.5, cy = 0.55) {
+  const c = document.createElement('canvas'); c.width = 1024; c.height = 768;
+  const g = c.getContext('2d');
+  const grd = g.createRadialGradient(1024 * cx, 768 * cy, 0, 1024 * cx, 768 * cy, 760);
+  stops.forEach(([o, col]) => grd.addColorStop(o, col));
+  g.fillStyle = grd; g.fillRect(0, 0, 1024, 768);
+  // faint vignette + floor glow
+  const v = g.createLinearGradient(0, 0, 0, 768);
+  v.addColorStop(0, 'rgba(0,0,0,0.25)'); v.addColorStop(0.55, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,0.35)');
+  g.fillStyle = v; g.fillRect(0, 0, 1024, 768);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
 
 function floorTexture() {
   const c = document.createElement('canvas'); c.width = c.height = 1024;
@@ -28,9 +44,30 @@ export async function createViewer(container, opts = {}) {
   const low = isLowPower();
   const reduced = prefersReducedMotion();
   await loadLiveryFonts();
-  const stage = createStage(container, { alpha: true, fov: 30, near: 0.5, far: 3000, shadows: !low, exposure: 1.0, label: opts.label || 'Interactive 3D aircraft model' });
+  const stage = createStage(container, { alpha: false, fov: 30, near: 0.5, far: 3000, shadows: !low, exposure: 1.0, antialias: low, label: opts.label || 'Interactive 3D aircraft model' });
   const { scene, camera, renderer } = stage;
   const lights = studioLighting(stage, { shadows: !low });
+  const backdrops = {
+    day: backdrop([[0, '#1d2748'], [0.45, '#0d1326'], [1, '#05070d']]),
+    night: backdrop([[0, '#121a33'], [0.5, '#070a14'], [1, '#020308']], 0.5, 0.6),
+    xray: backdrop([[0, '#0b2a44'], [0.5, '#071a2e'], [1, '#030b14']])
+  };
+  scene.background = backdrops.day;
+  const post = low ? null : createPost(stage, { ao: true, bloom: true, aoRadius: 2.2 });
+  const boost = post ? 2.4 : 1;
+  // Adaptive quality: after warm-up, drop AO (then bloom + resolution) if the GPU can't hold ~30fps.
+  const forceHQ = new URLSearchParams(location.search).has('hq');
+  const perf = { n: 0, sum: 0, done: !post || forceHQ, aoAllowed: true };
+  const sampleFrame = dt => {
+    if (perf.done) return;
+    if (++perf.n < 60) return;
+    perf.sum += dt;
+    if (perf.n < 150) return;
+    const avg = perf.sum / 90;
+    if (avg > 0.034) { perf.aoAllowed = false; post.setAo(false); }
+    if (avg > 0.05) { post.setBloom(0); renderer.setPixelRatio(Math.min(1.25, window.devicePixelRatio || 1)); stage.state.resizeHooks.forEach(fn => fn(stage.state.width, stage.state.height)); }
+    perf.done = true;
+  };
 
   const floorGroup = new THREE.Group();
   scene.add(floorGroup);
@@ -60,7 +97,7 @@ export async function createViewer(container, opts = {}) {
   let current = null;          // { ac, spec }
   let lineup = [];             // aircraft for to-scale mode
   let camTween = null;
-  const flags = { gear: true, night: false, xray: false };
+  const flags = { gear: true, flaps: false, night: false, xray: false };
 
   function frameFor(spec, dir = new THREE.Vector3(0.78, 0.36, 0.9)) {
     const L = spec.geo.length, S = spec.geo.wing.span;
@@ -78,11 +115,14 @@ export async function createViewer(container, opts = {}) {
   }
 
   function prep(ac) {
-    ac.group.traverse(o => { if (o.isMesh) { o.castShadow = !low; o.receiveShadow = false; } });
+    ac.group.traverse(o => { if (o.isMesh) { o.castShadow = !low; o.receiveShadow = !low; } });
     ac.group.position.y = -ac.dims.groundY;
-    ac.setGear(flags.gear);
+    ac.setGear(flags.gear, true);
+    ac.setFlaps(flags.flaps ? 1 : 0, true);
     ac.setNight(flags.night ? 1 : 0);
     ac.lightLevel = flags.night ? 1 : 0.45;
+    ac.lightBoost = boost;
+    ac.controlCheck = !reduced;
     if (flags.xray) ac.setXray(true);
     return ac;
   }
@@ -150,6 +190,7 @@ export async function createViewer(container, opts = {}) {
       tweenCamera({ pos: new THREE.Vector3(150, 160, 210), target: new THREE.Vector3(0, 0, 0) }, 1.8);
       lights.key.shadow.camera.left = -180; lights.key.shadow.camera.right = 180; lights.key.shadow.camera.top = 180; lights.key.shadow.camera.bottom = -180; lights.key.shadow.camera.updateProjectionMatrix();
       controls.maxDistance = 700;
+      if (post) post.setAoRadius(5);
     } else if (!on && lineup.length) {
       lineup.forEach(l => { scene.remove(l.ac.group); l.ac.dispose(); });
       lineup = [];
@@ -158,6 +199,7 @@ export async function createViewer(container, opts = {}) {
       lights.key.shadow.camera.left = -60; lights.key.shadow.camera.right = 60; lights.key.shadow.camera.top = 60; lights.key.shadow.camera.bottom = -60; lights.key.shadow.camera.updateProjectionMatrix();
       if (current) { current.ac.group.visible = true; tweenCamera(frameFor(current.spec), 1.6); }
       controls.maxDistance = 400;
+      if (post) post.setAoRadius(2.2);
     }
     container.classList.toggle('lineup', on);
   }
@@ -201,6 +243,7 @@ export async function createViewer(container, opts = {}) {
   const tmp = new THREE.Vector3(), camV = new THREE.Vector3();
   let viewShift = 0;
   stage.onFrame = (time, dt) => {
+    sampleFrame(dt);
     // slides
     const now = performance.now();
     for (let i = slides.length - 1; i >= 0; i--) {
@@ -253,20 +296,25 @@ export async function createViewer(container, opts = {}) {
     load,
     setAutoRotate(v) { api.autoRotate = v; controls.autoRotate = v && !reduced; },
     setGear(v) { flags.gear = v; current && current.ac.setGear(v); lineup.forEach(l => l.ac.setGear(v)); },
+    setFlaps(v) { flags.flaps = v; current && current.ac.setFlaps(v ? 1 : 0); lineup.forEach(l => l.ac.setFlaps(v ? 1 : 0)); },
     setNight(v) {
       flags.night = v;
       [current?.ac, ...lineup.map(l => l.ac)].forEach(ac => { if (ac) { ac.setNight(v ? 1 : 0); ac.lightLevel = v ? 1 : 0.45; } });
-      scene.environmentIntensity = v ? 0.12 : 0.75;
-      lights.key.intensity = v ? 0.25 : 2.4;
-      lights.rim.intensity = v ? 0.9 : 1.3;
-      lights.hemi.intensity = v ? 0.12 : 0.5;
-      lights.warm.intensity = v ? 0 : 0.6;
+      scene.environmentIntensity = v ? 0.1 : 0.85;
+      lights.key.intensity = v ? 0.22 : 2.2;
+      lights.rim.intensity = v ? 0.9 : 1.2;
+      lights.hemi.intensity = v ? 0.1 : 0.45;
+      lights.warm.intensity = v ? 0 : 0.55;
+      if (post) post.setBloom(v ? 0.9 : 0.45);
+      if (!flags.xray) scene.background = v ? backdrops.night : backdrops.day;
       container.classList.toggle('night', v);
     },
     setXray(v) {
       flags.xray = v;
       [current?.ac, ...lineup.map(l => l.ac)].forEach(ac => ac && ac.setXray(v));
       deck.visible = !v && !lineup.length; shadowFloor.visible = !v;
+      scene.background = v ? backdrops.xray : (flags.night ? backdrops.night : backdrops.day);
+      if (post) post.setAo(!v && perf.aoAllowed);
       container.classList.toggle('xray', v);
     },
     setLineup,
@@ -274,6 +322,7 @@ export async function createViewer(container, opts = {}) {
     focusHotspot,
     reset() { if (current) tweenCamera(frameFor(current.spec), 1.2); focusHotspot(-1); }
   };
+  container.__viewer = api; // handy for debugging from devtools
   if (opts.hotspots) setupHotspots(opts.hotspots);
   if (opts.initial) await load(opts.initial, { instant: !!opts.instant });
   window.__ready = true;

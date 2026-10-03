@@ -66,6 +66,7 @@ if (webglAvailable()) {
       const t = b.dataset.tool;
       if (t === 'rotate') viewer.setAutoRotate(on);
       if (t === 'gear') viewer.setGear(on);
+        if (t === 'flaps') viewer.setFlaps(on);
       if (t === 'night') viewer.setNight(on);
       if (t === 'xray') viewer.setXray(on);
       if (t === 'lineup') viewer.setLineup(on);

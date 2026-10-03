@@ -26,6 +26,8 @@ stage.scene.add(ac.group);
 ac.setNight(+(q.get('night') || 0));
 if (q.get('xray') === '1') ac.setXray(true);
 ac.lightLevel = +(q.get('lights') ?? 0.5);
+if (q.get('flaps')) ac.setFlaps(+q.get('flaps'), true);
+for (const k of ['ail', 'ele', 'rud']) if (q.get(k)) ac.controls[k] = +q.get(k);
 ac.update(0.5, 0.016);
 const box = new THREE.Box3().setFromObject(ac.group);
 const size = box.getSize(new THREE.Vector3()), ctr = box.getCenter(new THREE.Vector3());

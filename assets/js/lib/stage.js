@@ -42,7 +42,7 @@ export function createStage(container, opts = {}) {
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(opts.fov ?? 35, 1, opts.near ?? 0.5, opts.far ?? 4000);
 
-  const state = { visible: true, running: false, width: 1, height: 1, onFrame: null, onResize: null };
+  const state = { visible: true, running: false, width: 1, height: 1, onFrame: null, onResize: null, render: null, resizeHooks: [] };
   const clock = new THREE.Timer();
   clock.connect && clock.connect(document);
 
@@ -56,6 +56,7 @@ export function createStage(container, opts = {}) {
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
     state.onResize && state.onResize(w, h);
+    state.resizeHooks.forEach(fn => fn(w, h));
   }
   const ro = new ResizeObserver(resize);
   ro.observe(container);
@@ -81,7 +82,7 @@ export function createStage(container, opts = {}) {
         clock.update(ts);
         const dt = Math.min(clock.getDelta(), 0.05);
         state.onFrame && state.onFrame(clock.getElapsed(), dt);
-        renderer.render(scene, camera);
+        state.render ? state.render(dt) : renderer.render(scene, camera);
       };
       raf = requestAnimationFrame(tick);
     },
@@ -92,40 +93,74 @@ export function createStage(container, opts = {}) {
     THREE, renderer, scene, camera, canvas, state, clock, resize,
     set onFrame(fn) { state.onFrame = fn; },
     set onResize(fn) { state.onResize = fn; },
+    set render(fn) { state.render = fn; },
+    addResizeHook(fn) { state.resizeHooks.push(fn); fn(state.width, state.height); },
     start: () => loop.start(),
     stop: () => loop.stop(),
-    renderOnce: () => renderer.render(scene, camera),
+    renderOnce: () => (state.render ? state.render(0) : renderer.render(scene, camera)),
     dispose() { loop.stop(); ro.disconnect(); io.disconnect(); renderer.dispose(); canvas.remove(); }
   };
 }
 
-// Neutral studio reflections + key/fill/rim lights.
-export function studioLighting(stage, { shadows = false, intensity = 1 } = {}) {
-  const { renderer, scene } = stage;
+// Photographic studio: a dark cyclorama with long softbox strips, so glossy paint picks up crisp
+// highlight bands like a car configurator. Rendered once into a PMREM environment.
+export function softboxEnvironment(renderer, { warm = 1 } = {}) {
+  const env = new THREE.Scene();
+  const room = new THREE.Mesh(new THREE.SphereGeometry(60, 48, 24), new THREE.ShaderMaterial({
+    side: THREE.BackSide,
+    vertexShader: 'varying vec3 vP; void main(){ vP = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+    fragmentShader: 'varying vec3 vP; void main(){ float h = vP.y; vec3 c = mix(vec3(0.035, 0.04, 0.055), vec3(0.11, 0.12, 0.15), smoothstep(-0.2, 0.9, h)); c = mix(c, vec3(0.06, 0.05, 0.045), smoothstep(0.0, -0.6, h)); gl_FragColor = vec4(c, 1.0); }'
+  }));
+  env.add(room);
+  const panel = (w, h, pos, look, intensity, color = '#ffffff') => {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ color: new THREE.Color(color).multiplyScalar(intensity), side: THREE.DoubleSide, toneMapped: false }));
+    m.position.copy(pos); m.lookAt(look);
+    env.add(m);
+  };
+  const O = new THREE.Vector3();
+  panel(70, 5, new THREE.Vector3(0, 34, 0), O, 4.2);
+  panel(70, 3, new THREE.Vector3(0, 30, 16), O, 2.6);
+  panel(70, 3, new THREE.Vector3(0, 30, -16), O, 2.6);
+  panel(10, 26, new THREE.Vector3(40, 10, 24), O, 1.8, '#fff1e0');
+  panel(10, 26, new THREE.Vector3(-40, 10, -24), O, 1.4, '#e6eeff');
+  panel(28, 8, new THREE.Vector3(-20, 6, 44), O, 1.1 * warm, '#ffd2a8');
+  panel(28, 8, new THREE.Vector3(30, 4, -44), O, 0.7, '#cdd9ff');
+  panel(80, 80, new THREE.Vector3(0, -30, 0), O, 0.12, '#3a3530');
   const pmrem = new THREE.PMREMGenerator(renderer);
-  const env = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+  const tex = pmrem.fromScene(env, 0.035).texture;
+  pmrem.dispose();
+  env.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); });
+  return tex;
+}
+
+// Studio reflections + key/fill/rim lights.
+export function studioLighting(stage, { shadows = false, intensity = 1, softbox = true } = {}) {
+  const { renderer, scene } = stage;
+  let env;
+  if (softbox) env = softboxEnvironment(renderer);
+  else { const pmrem = new THREE.PMREMGenerator(renderer); env = pmrem.fromScene(new RoomEnvironment(), 0.04).texture; pmrem.dispose(); }
   scene.environment = env;
-  scene.environmentIntensity = 0.75 * intensity;
-  const hemi = new THREE.HemisphereLight('#dfe6ff', '#2a2018', 0.5 * intensity);
+  scene.environmentIntensity = 0.85 * intensity;
+  const hemi = new THREE.HemisphereLight('#dfe6ff', '#2a2018', 0.45 * intensity);
   scene.add(hemi);
-  const key = new THREE.DirectionalLight('#fff4e6', 2.4 * intensity);
+  const key = new THREE.DirectionalLight('#fff4e6', 2.2 * intensity);
   key.position.set(60, 90, 70);
   scene.add(key);
-  const rim = new THREE.DirectionalLight('#9fb6ff', 1.3 * intensity);
+  const rim = new THREE.DirectionalLight('#9fb6ff', 1.2 * intensity);
   rim.position.set(-80, 40, -90);
   scene.add(rim);
-  const warm = new THREE.DirectionalLight('#ffb070', 0.6 * intensity);
+  const warm = new THREE.DirectionalLight('#ffb070', 0.55 * intensity);
   warm.position.set(-40, -20, 80);
   scene.add(warm);
   if (shadows) {
     key.castShadow = true;
-    key.shadow.mapSize.set(2048, 2048);
+    key.shadow.mapSize.set(isLowPower() ? 1024 : 4096, isLowPower() ? 1024 : 4096);
     const c = key.shadow.camera;
     c.left = -60; c.right = 60; c.top = 60; c.bottom = -60; c.near = 1; c.far = 400;
-    key.shadow.bias = -0.0005;
-    key.shadow.radius = 6;
+    key.shadow.bias = -0.0003;
+    key.shadow.normalBias = 0.05;
+    key.shadow.radius = 5;
   }
-  pmrem.dispose();
   return { hemi, key, rim, warm, env };
 }
 

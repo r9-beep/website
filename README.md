@@ -4,6 +4,8 @@ A multi-page, fully static website for the (fictional) revived **British Aircraf
 
 Every aircraft you see is a real-time 3D model generated in code — no downloaded models, no build step needed to host it.
 
+**What the models do:** section-lofted wings and tail with real hinged **flaps, slats, ailerons, elevators and rudder** (they deploy and run a control check in the hangar), an **undercarriage that retracts and extends** with doors and oleo struts, scimitar-bladed turbofans with spinner swirls, guide vanes and visible turbines, and a livery painted into four matching layers (colour, cabin-light glow, panel-line normal map, roughness/metalness). In the hangar they're lit by a softbox studio with **ambient occlusion, bloom and self-shadowing**; the viewer measures its own frame rate and steps quality down on slower machines (add `?hq` to a page URL to force full quality).
+
 **Live (once Pages is switched on):** https://r9-beep.github.io/website/
 
 ## What's inside
@@ -11,7 +13,7 @@ Every aircraft you see is a real-time 3D model generated in code — no download
 | Page | Highlights |
 | --- | --- |
 | **Home** (`/`) | Scroll-driven 3D flight of the 4-44ULR above the clouds — dusk turns to night as you scroll, contrails, nav/strobe lights, glowing cabin windows. Fleet cards, programme ticker, mini 3D globe. |
-| **Fleet** (`/fleet/`) | 3D hangar: switch aircraft, orbit/zoom, landing gear, night mode, X-ray mode, and a to-scale line-up of all five. Animated comparison bars and full spec table. |
+| **Fleet** (`/fleet/`) | 3D hangar: switch aircraft, orbit/zoom, retract/extend the gear, deploy flaps and slats, night mode (bloom on every light and window), X-ray mode, and a to-scale line-up of all five. Animated comparison bars and full spec table. |
 | **Aircraft** (`/fleet/<id>.html`) | One page per aircraft: 3D viewer with clickable hotspots, key specs, generated cabin seat map, spec sheet, sample missions with real great-circle distances. |
 | **Engineering** (`/engineering/`) | Interactive cutaway turbofan (fan, booster, HP compressor, combustor, turbines) with a spool-up slider, manufacturing map of the UK, sustainability roadmap. |
 | **Range** (`/range/`) | Dotted 3D globe (Natural Earth data). Pick an aircraft and a hub to see its range ring, reachable cities and animated great-circle routes; route checker. |
@@ -89,7 +91,7 @@ assets/
   img/        rendered fleet images, share images, icons
   js/
     data/     fleet.js (aircraft + airports), land-mask.js (globe land data)
-    lib/      aircraft.js (procedural airliner), sky.js, globe.js, viewer.js, engine.js, stage.js
+    lib/      aircraft.js (procedural airliner), sky.js, globe.js, viewer.js, post.js, engine.js, stage.js
     pages/    one script per page
     vendor/   three.js (bundled, with OrbitControls etc.)
 src/          page sources + aircraft template

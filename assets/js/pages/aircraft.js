@@ -19,6 +19,7 @@ if (spec && host) {
         b.setAttribute('aria-pressed', String(on));
         if (t === 'rotate') viewer.setAutoRotate(on);
         if (t === 'gear') viewer.setGear(on);
+        if (t === 'flaps') viewer.setFlaps(on);
         if (t === 'night') viewer.setNight(on);
         if (t === 'xray') viewer.setXray(on);
       }));
