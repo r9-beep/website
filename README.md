@@ -19,6 +19,7 @@ Every aircraft you see is a real-time 3D model generated in code — no download
 | **Range** (`/range/`) | Dotted 3D globe (Natural Earth data). Pick an aircraft and a hub to see its range ring, reachable cities and animated great-circle routes; route checker. |
 | **Heritage** (`/heritage/`) | Scroll-tracked timeline from Filton 1910 to the 4-44ULR, plus One-Eleven "then & now". |
 | **Newsroom**, **Careers**, **Contact** | Filterable press releases + media kit, filterable job board, validated order-enquiry form and FAQ. |
+| **MNC Simulator** (`/mnc/`) | A standalone strategy game on a to-scale Natural Earth world map: found a multinational, claim real-world resource deposits (Ghawar oil, Pilbara iron ore, Atacama lithium, Spruce Pine quartz…), build plants across 16 industries from timber and farming to defence, aerospace, software and quantum computers, and run ships along real sea lanes (Suez, Panama, the straits) and aircraft on great circles. Six AI rivals compete for deposits and markets; world events close canals and move prices. Saves to the browser. |
 | **404** | A holding-pattern radar animation. |
 | **Brochure** | `assets/BAC-Fleet-Brochure.pdf` — an 8-page A4 PDF generated from `/brochure/`. |
 
