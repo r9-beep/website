@@ -1,11 +1,9 @@
 {
-  "name": "bac-website",
+  "name": "mnc-simulator",
   "version": "1.0.0",
   "private": true,
-  "description": "British Aircraft Corporation — static website with procedural 3D aircraft (GitHub Pages).",
-  "type": "module",
+  "description": "MNC Simulator — a multinational company strategy game on a to-scale world map.",
   "scripts": {
-    "build": "node tools/build.mjs",
     "serve": "npx http-server -p 8080 -c-1 ."
   },
   "license": "UNLICENSED"

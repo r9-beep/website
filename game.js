@@ -767,7 +767,7 @@ function startModal() {
       <label class="f">Headquarters</label><div class="opts">${hqs.map(c => `<button class="opt ${c.id === st.hq ? 'on' : ''}" data-act="st-hq" data-v="${c.id}"><b>${esc(c.name)}</b><small>${esc(c.note || (Object.keys(c.bonus).some(k => k !== 'research') ? Object.keys(c.bonus).filter(k => k !== 'research').map(k => GOODS[k].name).join(', ') + ' bonus' : c.deposits.map(d => GOODS[d[0]].name).join(', ')))}</small></button>`).join('')}</div>
       <label class="f">Difficulty</label><div class="opts">${Object.entries(G.DIFFICULTY).map(([k, d]) => `<button class="opt ${k === st.diff ? 'on' : ''}" data-act="st-diff" data-v="${k}"><b>${d.label}</b><small>${d.blurb}</small></button>`).join('')}</div>
       <details><summary>How to play</summary>${howTo()}</details>
-      <div class="acts"><a class="btn ghost" href="../">← BAC website</a><button class="btn p" data-act="begin">Found company →</button></div>`);
+      <div class="acts"><button class="btn p" data-act="begin">Found company →</button></div>`);
   };
   R.start = st; R.startRender = render;
   render();
@@ -870,7 +870,7 @@ function endModal(kind) {
 function menuModal() {
   openModal({ type: 'menu' }, `<h1>Menu</h1><p class="sub">${esc(W.S.name)} · ${dateStr(W.S.day)}</p>
     <div class="opts"><button class="opt" data-act="close-modal"><b>▶ Resume</b><small>Back to the map</small></button><button class="opt" data-act="save"><b>💾 Save</b><small>Stored in this browser (also autosaves monthly)</small></button><button class="opt" data-act="new"><b>✨ New game</b><small>Abandon this company</small></button><button class="opt" data-act="help"><b>❓ How to play</b><small>The basics</small></button></div>
-    <div class="acts"><a class="btn ghost" href="../">← BAC website</a></div>`);
+    `);
 }
 
 // ---------- Actions ----------

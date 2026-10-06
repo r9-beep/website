@@ -2,7 +2,7 @@
 // Ships path-find through real water (canals and straits carved in by hand),
 // planes fly great circles. Every path is a list of [lon, lat] with unwrapped
 // longitudes so it can be drawn straight across the antimeridian.
-import { LAND_MASK, LAND_W, LAND_H } from '../assets/js/data/land-mask.js';
+import { LAND_MASK, LAND_W, LAND_H } from './land-mask.js';
 
 const W = LAND_W, H = LAND_H, CELL = 360 / W;
 const R = 6371, D2R = Math.PI / 180;

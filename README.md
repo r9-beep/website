@@ -1,108 +1,37 @@
-# British Aircraft Corporation — website
+# MNC Simulator
 
-A multi-page, fully static website for the (fictional) revived **British Aircraft Corporation**, built to be hosted free on **GitHub Pages**.
+A browser strategy game: found a multinational company on a **to-scale world map**, claim real-world resources, build plants across 16 industries and ship everything around the globe by sea and air — from timber all the way to quantum computers.
 
-Every aircraft you see is a real-time 3D model generated in code — no downloaded models, no build step needed to host it.
+No build step, no dependencies — plain HTML and JavaScript modules, ready for GitHub Pages.
 
-**What the models do:** section-lofted wings and tail with real hinged **flaps, slats, ailerons, elevators and rudder** (they deploy and run a control check in the hangar), an **undercarriage that retracts and extends** with doors and oleo struts, scimitar-bladed turbofans with spinner swirls, guide vanes and visible turbines, and a livery painted into four matching layers (colour, cabin-light glow, panel-line normal map, roughness/metalness). In the hangar they're lit by a softbox studio with **ambient occlusion, bloom and self-shadowing**; the viewer measures its own frame rate and steps quality down on slower machines (add `?hq` to a page URL to force full quality).
+## Play
 
-**Live (once Pages is switched on):** https://r9-beep.github.io/website/
+- **Online:** turn on GitHub Pages for this branch (Settings → Pages → source: this branch, root). The game is the site’s home page.
+- **Locally:** run `npm run serve` (or any static server) and open http://localhost:8080. It must be served — opening `index.html` straight from disk blocks the JS modules.
 
-## What's inside
+## What’s in it
 
-| Page | Highlights |
+- **Real world, real distances.** Natural Earth country outlines on an equirectangular map with a km scale bar. Ships path-find through real water on a 0.5° grid — Suez, Panama, Gibraltar, Hormuz, Malacca and the rest are carved in — so Southampton → Shanghai is ~19,200 km via Suez and ~24,500 km round the Cape when the canal is blocked. Aircraft fly great circles.
+- **68 real cities and their resources:** Ghawar oil, Pilbara iron ore, Atacama copper and lithium, Congo cobalt, Spruce Pine quartz, Odesa neon, Qatari helium, Olympic Dam uranium, Bayan Obo rare earths… plus local industry bonuses (Port Talbot steel, Hsinchu chips, Veldhoven EUV, Ulsan shipyards, Bengaluru software, Bristol and Toulouse aerospace).
+- **92 products in 16 industries:** mining, oil & gas, energy, farming, food, forestry, marine, metals, chemicals, materials, consumer, electronics, automotive, aerospace, defence and software.
+  - Farms run 35% harder with fertiliser on site.
+  - Cargo ships and airliners you build can be commissioned into your own fleet.
+  - Chip fabs need EUV machines delivered before they can be built.
+  - Software is digital — no warehouse space, no shipping.
+- **Logistics:** six ship and aircraft types on two-stop routes with per-stop loading lists, fuel and running costs.
+- **Markets:** ten regions with their own prices; selling a lot pushes the local price down, buying pushes it up.
+- **Six AI rivals** claim deposits, build plants, flood markets and make offers for your operations — buy them out if you can afford it.
+- **Research tree** (28 projects), **25 goals** with cash rewards, and **world events**: canal blockages, oil shocks, chip shortages, droughts, rearmament drives, tariffs and booms.
+- Win at **$1B net worth**; spend 45 days overdrawn and the administrators take over. Saves to the browser.
+
+## Files
+
+| File | What it does |
 | --- | --- |
-| **Home** (`/`) | Scroll-driven 3D flight of the 4-44ULR above the clouds — dusk turns to night as you scroll, contrails, nav/strobe lights, glowing cabin windows. Fleet cards, programme ticker, mini 3D globe. |
-| **Fleet** (`/fleet/`) | 3D hangar: switch aircraft, orbit/zoom, retract/extend the gear, deploy flaps and slats, night mode (bloom on every light and window), X-ray mode, and a to-scale line-up of all five. Animated comparison bars and full spec table. |
-| **Aircraft** (`/fleet/<id>.html`) | One page per aircraft: 3D viewer with clickable hotspots, key specs, generated cabin seat map, spec sheet, sample missions with real great-circle distances. |
-| **Engineering** (`/engineering/`) | Interactive cutaway turbofan (fan, booster, HP compressor, combustor, turbines) with a spool-up slider, manufacturing map of the UK, sustainability roadmap. |
-| **Range** (`/range/`) | Dotted 3D globe (Natural Earth data). Pick an aircraft and a hub to see its range ring, reachable cities and animated great-circle routes; route checker. |
-| **Heritage** (`/heritage/`) | Scroll-tracked timeline from Filton 1910 to the 4-44ULR, plus One-Eleven "then & now". |
-| **Newsroom**, **Careers**, **Contact** | Filterable press releases + media kit, filterable job board, validated order-enquiry form and FAQ. |
-| **MNC Simulator** (`/mnc/`) | A standalone strategy game on a to-scale Natural Earth world map: found a multinational, claim real-world resource deposits (Ghawar oil, Pilbara iron ore, Atacama lithium, Spruce Pine quartz…), build plants across 16 industries from timber and farming to defence, aerospace, software and quantum computers, and run ships along real sea lanes (Suez, Panama, the straits) and aircraft on great circles. Six AI rivals compete for deposits and markets; world events close canals and move prices. Saves to the browser. |
-| **404** | A holding-pattern radar animation. |
-| **Brochure** | `assets/BAC-Fleet-Brochure.pdf` — an 8-page A4 PDF generated from `/brochure/`. |
-
-Everything is responsive, keyboard accessible, respects `prefers-reduced-motion`, pauses 3D when off-screen, and falls back to rendered images where WebGL isn't available.
-
-## Launch it on GitHub Pages
-
-1. Push this repository to GitHub (already done if you're reading this on GitHub).
-2. On GitHub open **Settings → Pages**.
-3. Under **Build and deployment → Source** choose **Deploy from a branch**.
-4. Pick the branch that holds these files (e.g. `main`) and the **`/ (root)`** folder, then **Save**.
-5. After a minute or two the site is live at `https://<your-username>.github.io/<repo-name>/`.
-
-No build or Actions workflow is needed — the generated HTML is committed. `.nojekyll` tells Pages to serve the files as-is.
-
-> **Different URL?** If you rename the repo or use a custom domain, change `SITE.url` at the top of `tools/build.mjs` and run `node tools/build.mjs`. That updates canonical/share links, the sitemap and the 404 page's base path.
-
-## Preview locally
-
-ES modules need a web server (opening `index.html` from disk won't work):
-
-```bash
-npx http-server -c-1 .      # then open http://localhost:8080
-# or
-python3 -m http.server 8080
-```
-
-## Editing content
-
-The HTML at the repo root is **generated**. Edit the sources, then rebuild:
-
-```bash
-node tools/build.mjs
-```
-
-- `src/pages/**` — page bodies (a small JSON header sets title, description, scripts).
-- `src/templates/aircraft.html` — the template for all five aircraft pages.
-- `assets/js/data/fleet.js` — **single source of truth** for every aircraft: specs, descriptions, features, cabin layouts, hotspots, sample routes and the 3D geometry parameters (length, span, sweep, engines, winglets…). Change a number here and the 3D model, pages, tables and globe all follow.
-- `assets/css/main.css` — the design system.
-- `tools/build.mjs` — shared head, navigation and footer.
-
-### Regenerating images and the PDF brochure
-
-Card images, share images, icons, the hero still and the brochure are rendered from the live 3D models:
-
-```bash
-npm i -D playwright && npx playwright install chromium
-pip install pillow
-node tools/build.mjs && node tools/render-assets.mjs        # everything
-node tools/render-assets.mjs --pdf                          # just the brochure
-```
-
-### Making the enquiry form send email
-
-GitHub Pages can't run server code, so the form runs in demo mode by default (it validates and thanks the visitor, but sends nothing). To receive enquiries, create a free form endpoint (e.g. [Formspree](https://formspree.io)), then add it to the form in `src/pages/contact/index.html`:
-
-```html
-<form class="form" data-enquiry data-endpoint="https://formspree.io/f/your-id" novalidate>
-```
-
-and rebuild.
-
-## Project structure
-
-```
-index.html, fleet/, engineering/, range/, heritage/, news/, careers/, contact/, brochure/, 404.html   ← generated pages
-assets/
-  css/        main.css, fonts.css, brochure.css
-  fonts/      self-hosted Cormorant Garamond, Inter, IBM Plex Mono (woff2)
-  img/        rendered fleet images, share images, icons
-  js/
-    data/     fleet.js (aircraft + airports), land-mask.js (globe land data)
-    lib/      aircraft.js (procedural airliner), sky.js, globe.js, viewer.js, post.js, engine.js, stage.js
-    pages/    one script per page
-    vendor/   three.js (bundled, with OrbitControls etc.)
-src/          page sources + aircraft template
-tools/        build.mjs, render-assets.mjs, render.html, og.html, optimise-images.py
-```
-
-## Credits
-
-- 3D: [three.js](https://threejs.org) r186 (MIT), bundled in `assets/js/vendor/three.js`.
-- Fonts: Cormorant Garamond, Inter, IBM Plex Mono — SIL Open Font License, via Fontsource.
-- Map data: [Natural Earth](https://www.naturalearthdata.com) (public domain) via `world-atlas`.
-
-*British Aircraft Corporation (2024) is a design concept. Aircraft, people, customers and programme milestones from 2024 onwards are fictional; historic references are to the original BAC (1960–1977) and its predecessors. All specifications provisional.*
+| `index.html` | Page shell and styles |
+| `game.js` | Map rendering, panels, input |
+| `sim.js` | Economy, production, vehicles, rivals, events, goals |
+| `data.js` | Goods, recipes, cities, research, vehicles, rivals |
+| `sea.js` | Sea routing (A* on the land mask) and great-circle flights |
+| `world.js` | Country outlines (Natural Earth 1:50m via world-atlas) |
+| `land-mask.js` | 0.5° land/sea bitmask used for routing |

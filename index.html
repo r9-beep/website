@@ -1,443 +1,210 @@
 <!doctype html>
-<html lang="en-GB" id="top">
+<html lang="en">
 <head>
 <meta charset="utf-8">
-<script>document.documentElement.classList.add('js');try{if(sessionStorage.getItem('bac-transition')){sessionStorage.removeItem('bac-transition');document.documentElement.classList.add('is-entering');}}catch(e){}</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>British Aircraft Corporation — Britain builds the world's finest aircraft</title>
-<meta name="description" content="British Aircraft Corporation designs and builds the next generation of British airliners — from the 1-11NXT narrow-body to the 19,000 km 4-44ULR.">
-<meta name="theme-color" content="#0A0E1A">
-<meta name="color-scheme" content="dark">
-<link rel="canonical" href="https://r9-beep.github.io/website/">
-<meta property="og:type" content="website">
-<meta property="og:site_name" content="British Aircraft Corporation">
-<meta property="og:title" content="British Aircraft Corporation — Britain builds the world's finest aircraft">
-<meta property="og:description" content="British Aircraft Corporation designs and builds the next generation of British airliners — from the 1-11NXT narrow-body to the 19,000 km 4-44ULR.">
-<meta property="og:url" content="https://r9-beep.github.io/website/">
-<meta property="og:image" content="https://r9-beep.github.io/website/assets/img/og.jpg">
-<meta property="og:image:width" content="1200">
-<meta property="og:image:height" content="630">
-<meta name="twitter:card" content="summary_large_image">
+<title>MNC Simulator</title>
+<meta name="description" content="Build a multinational on a to-scale world map: claim oil, ore and lithium, ship it by sea and air, and climb from timber to quantum computers.">
+<meta name="theme-color" content="#08111b">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
-<link rel="icon" href="favicon.png" type="image/png" sizes="32x32">
-<link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
-<link rel="manifest" href="site.webmanifest">
-<link rel="preload" href="assets/fonts/cormorant-garamond-latin-300-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="preload" href="assets/fonts/inter-latin-300-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="modulepreload" href="assets/js/vendor/three.js">
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"Organization","name":"British Aircraft Corporation","alternateName":"BAC","url":"https://r9-beep.github.io/website/","logo":"https://r9-beep.github.io/website/assets/img/icon-512.png","description":"British Aircraft Corporation designs and builds the next generation of British airliners — from the 1-11NXT narrow-body to the 19,000 km 4-44ULR.","foundingDate":"2024","address":{"@type":"PostalAddress","addressLocality":"Bristol","addressCountry":"GB"}}</script>
-<link rel="stylesheet" href="assets/css/fonts.css">
-<link rel="stylesheet" href="assets/css/main.css">
+<style>
+@font-face { font-family: Inter; font-weight: 400; font-display: swap; src: url(fonts/inter-latin-400-normal.woff2) format('woff2'); }
+@font-face { font-family: Inter; font-weight: 500; font-display: swap; src: url(fonts/inter-latin-500-normal.woff2) format('woff2'); }
+@font-face { font-family: Inter; font-weight: 600; font-display: swap; src: url(fonts/inter-latin-600-normal.woff2) format('woff2'); }
+@font-face { font-family: Plex; font-weight: 400; font-display: swap; src: url(fonts/ibm-plex-mono-latin-400-normal.woff2) format('woff2'); }
+@font-face { font-family: Plex; font-weight: 500; font-display: swap; src: url(fonts/ibm-plex-mono-latin-500-normal.woff2) format('woff2'); }
+:root {
+  --bg: #08111b; --panel: rgba(12, 22, 34, 0.94); --panel-2: #111f30; --line: #1f3248; --line-2: #2a4260;
+  --text: #e4ecf5; --muted: #8aa0b8; --dim: #5d7590; --accent: #ff4d6d; --good: #3ddc97; --warn: #ffb547; --bad: #ff5f5f; --event: #7cc4ff;
+  --mono: Plex, ui-monospace, SFMono-Regular, Menlo, monospace; --sans: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  --top: 54px; --rail: 60px;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--text); font: 13px/1.45 var(--sans); -webkit-font-smoothing: antialiased; }
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+#map { position: fixed; inset: 0; display: block; touch-action: none; cursor: grab; }
+#map.dragging { cursor: grabbing; }
+.num, .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
 
-<script type="module" src="assets/js/site.js"></script>
-<script type="module" src="assets/js/pages/home.js"></script>
+/* Top bar */
+#top { position: fixed; top: 0; left: 0; right: 0; height: var(--top); display: flex; align-items: center; gap: 18px; padding: 0 14px; background: linear-gradient(#0b1724f2, #0b1724d9); border-bottom: 1px solid var(--line); z-index: 20; backdrop-filter: blur(8px); }
+.brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.brand .logo { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; font-weight: 600; font-size: 11px; letter-spacing: .04em; background: var(--accent); color: #0a0f16; flex: none; }
+.brand b { font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 220px; }
+.brand small { display: block; color: var(--muted); font-size: 11px; }
+.stats { display: flex; gap: 18px; margin-left: auto; }
+.stat { display: flex; flex-direction: column; line-height: 1.15; }
+.stat label { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--dim); }
+.stat span { font-family: var(--mono); font-size: 14px; white-space: nowrap; }
+.stat .pos { color: var(--good); } .stat .neg { color: var(--bad); }
+.speed { display: flex; border: 1px solid var(--line-2); border-radius: 8px; overflow: hidden; }
+.speed button { background: none; border: 0; padding: 6px 9px; font-family: var(--mono); font-size: 12px; color: var(--muted); }
+.speed button + button { border-left: 1px solid var(--line); }
+.speed button.on { background: var(--accent); color: #0a0f16; font-weight: 600; }
+.iconbtn { background: none; border: 1px solid var(--line-2); border-radius: 8px; width: 34px; height: 32px; color: var(--muted); font-size: 16px; }
+.iconbtn:hover { color: var(--text); border-color: var(--muted); }
+
+/* Rail */
+#rail { position: fixed; top: var(--top); left: 0; bottom: 0; width: var(--rail); display: flex; flex-direction: column; gap: 4px; padding: 10px 6px; background: #0a1520e6; border-right: 1px solid var(--line); z-index: 15; }
+#rail button { position: relative; background: none; border: 0; border-radius: 10px; padding: 8px 0 6px; color: var(--muted); display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 10px; }
+#rail button .i { font-size: 18px; line-height: 1; filter: grayscale(.4); }
+#rail button:hover { background: #ffffff0d; color: var(--text); }
+#rail button.on { background: #ffffff14; color: var(--text); box-shadow: inset 3px 0 0 var(--accent); }
+#rail button.on .i { filter: none; }
+#rail .dot { position: absolute; top: 5px; right: 9px; width: 8px; height: 8px; border-radius: 50%; background: var(--warn); }
+
+/* Panels */
+.panel { position: fixed; top: calc(var(--top) + 10px); bottom: 10px; width: 360px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; z-index: 14; display: flex; flex-direction: column; box-shadow: 0 20px 50px #0008; backdrop-filter: blur(10px); }
+#left { left: calc(var(--rail) + 10px); }
+#right { right: 10px; width: 380px; }
+.panel[hidden] { display: none; }
+.ph { display: flex; align-items: center; gap: 10px; padding: 14px 16px 10px; border-bottom: 1px solid var(--line); }
+.ph h2 { margin: 0; font-size: 16px; font-weight: 600; flex: 1; min-width: 0; }
+.ph h2 small { display: block; font-size: 12px; font-weight: 400; color: var(--muted); margin-top: 2px; }
+.ph .x { background: none; border: 0; color: var(--muted); font-size: 20px; line-height: 1; padding: 4px; }
+.pb { overflow-y: auto; padding: 12px 16px 18px; flex: 1; overscroll-behavior: contain; }
+.pb::-webkit-scrollbar { width: 8px; } .pb::-webkit-scrollbar-thumb { background: var(--line-2); border-radius: 4px; }
+h3 { font-size: 11px; text-transform: uppercase; letter-spacing: .09em; color: var(--dim); margin: 18px 0 8px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+h3:first-child { margin-top: 2px; }
+h3 .r { margin-left: auto; text-transform: none; letter-spacing: 0; font-weight: 400; }
+.muted { color: var(--muted); } .dim { color: var(--dim); } .good { color: var(--good); } .warn { color: var(--warn); } .bad { color: var(--bad); }
+.card { background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; }
+.card.click { cursor: pointer; } .card.click:hover { border-color: var(--line-2); background: #142538; }
+.row { display: flex; align-items: center; gap: 8px; }
+.row .grow { flex: 1; min-width: 0; }
+.chips { display: flex; flex-wrap: wrap; gap: 5px; margin: 6px 0; }
+.chip { font-size: 11px; padding: 2px 8px; border-radius: 99px; background: #ffffff0f; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+.chip.b { color: var(--good); border-color: #3ddc9744; background: #3ddc9712; }
+.chip.w { color: var(--warn); border-color: #ffb54744; background: #ffb54712; }
+.btn { background: #ffffff0d; border: 1px solid var(--line-2); border-radius: 8px; padding: 5px 10px; font-size: 12px; white-space: nowrap; color: var(--text); }
+.btn:hover:not(:disabled) { background: #ffffff1a; border-color: var(--muted); }
+.btn.p { background: var(--accent); border-color: transparent; color: #0a0f16; font-weight: 600; }
+.btn.p:hover:not(:disabled) { filter: brightness(1.1); background: var(--accent); }
+.btn.sm { padding: 3px 7px; font-size: 11px; }
+.btn.ghost { background: none; }
+.btn:disabled { opacity: .4; cursor: not-allowed; }
+.btn.block { width: 100%; padding: 9px; }
+.ic { font-size: 16px; width: 22px; text-align: center; flex: none; }
+.bar { height: 5px; border-radius: 3px; background: #ffffff12; overflow: hidden; }
+.bar > i { display: block; height: 100%; background: var(--accent); border-radius: 3px; }
+.bar.g > i { background: var(--good); } .bar.w > i { background: var(--warn); }
+table { width: 100%; border-collapse: collapse; }
+td, th { padding: 5px 4px; text-align: left; border-bottom: 1px solid var(--line); vertical-align: middle; }
+th { font-size: 10px; text-transform: uppercase; letter-spacing: .07em; color: var(--dim); font-weight: 600; }
+td.n, th.n { text-align: right; font-family: var(--mono); }
+.slotrow { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-top: 1px dashed var(--line); font-size: 12px; }
+.slotrow:first-of-type { border-top: 0; }
+.pip { width: 10px; height: 10px; border-radius: 3px; flex: none; background: var(--c, transparent); border: 1.5px solid var(--c, var(--dim)); }
+.pip.free { background: none; }
+.toggle { appearance: none; width: 28px; height: 16px; border-radius: 99px; background: #ffffff1a; position: relative; cursor: pointer; vertical-align: middle; margin: 0; flex: none; }
+.toggle::after { content: ''; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: var(--muted); transition: transform .15s; }
+.toggle:checked { background: var(--good); } .toggle:checked::after { transform: translateX(12px); background: #0a0f16; }
+input.keep { width: 58px; background: #0008; border: 1px solid var(--line-2); border-radius: 6px; padding: 2px 5px; font-family: var(--mono); font-size: 11px; text-align: right; }
+.tabs { display: flex; gap: 4px; margin-bottom: 10px; flex-wrap: wrap; }
+.tabs button { background: none; border: 1px solid var(--line); border-radius: 99px; padding: 3px 10px; font-size: 12px; color: var(--muted); }
+.tabs button.on { border-color: var(--accent); color: var(--text); background: #ff4d6d1a; }
+.lead { display: grid; grid-template-columns: 20px 1fr auto; gap: 4px 8px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.lead .sw { width: 12px; height: 12px; border-radius: 3px; }
+.goal { display: flex; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.goal .ck { width: 20px; height: 20px; flex: none; border-radius: 50%; border: 1.5px solid var(--line-2); display: grid; place-items: center; font-size: 11px; }
+.goal.done .ck { background: var(--good); border-color: var(--good); color: #0a0f16; }
+.goal.done b { color: var(--muted); }
+.news { padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 12px; }
+.news .d { font-family: var(--mono); font-size: 10px; color: var(--dim); }
+.recipe { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; font-size: 11px; color: var(--muted); }
+.recipe span { background: #ffffff0a; border-radius: 5px; padding: 1px 5px; white-space: nowrap; }
+.spark { width: 100%; height: 70px; display: block; }
+
+/* Toasts */
+#toasts { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column-reverse; gap: 6px; z-index: 40; pointer-events: none; width: min(560px, calc(100vw - 32px)); }
+.toast { pointer-events: auto; background: #0e1b2af5; border: 1px solid var(--line-2); border-left: 3px solid var(--muted); border-radius: 10px; padding: 9px 12px; font-size: 13px; box-shadow: 0 10px 30px #0009; animation: tin .25s ease-out; display: flex; gap: 10px; align-items: center; }
+.toast.good { border-left-color: var(--good); } .toast.bad { border-left-color: var(--bad); } .toast.warn { border-left-color: var(--warn); } .toast.event { border-left-color: var(--event); } .toast.goal { border-left-color: #ffd34d; }
+.toast .grow { flex: 1; }
+@keyframes tin { from { opacity: 0; transform: translateY(8px); } }
+#tip { position: fixed; pointer-events: none; z-index: 30; background: #0b1724f2; border: 1px solid var(--line-2); border-radius: 8px; padding: 7px 10px; font-size: 12px; max-width: 260px; display: none; }
+#scale { position: fixed; bottom: 14px; right: 14px; z-index: 5; font: 11px var(--mono); color: var(--muted); text-align: right; pointer-events: none; }
+#scale i { display: block; height: 6px; border: 1.5px solid var(--muted); border-top: 0; margin-top: 2px; margin-left: auto; }
+#fxbar { position: fixed; top: calc(var(--top) + 10px); left: 50%; transform: translateX(-50%); z-index: 12; display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; max-width: 50vw; pointer-events: none; }
+#fxbar .chip { background: #0b1724e6; pointer-events: auto; }
+
+/* Modal */
+#modal { position: fixed; inset: 0; background: #03080ecc; z-index: 50; display: grid; place-items: center; padding: 16px; backdrop-filter: blur(3px); }
+#modal[hidden] { display: none; }
+.mc { width: min(640px, 100%); max-height: calc(100vh - 32px); overflow-y: auto; background: #0d1a28; border: 1px solid var(--line-2); border-radius: 16px; padding: 22px 24px; box-shadow: 0 30px 80px #000c; }
+.mc h1 { margin: 0 0 4px; font-size: 22px; font-weight: 600; }
+.mc .sub { color: var(--muted); margin: 0 0 16px; }
+.mc label.f { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--dim); margin: 14px 0 6px; font-weight: 600; }
+.mc input[type=text], .mc input[type=number], .mc select { width: 100%; background: #0007; border: 1px solid var(--line-2); border-radius: 8px; padding: 8px 10px; }
+.mc .acts { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; flex-wrap: wrap; }
+.swatches { display: flex; gap: 8px; }
+.swatches button { width: 30px; height: 30px; border-radius: 8px; border: 2px solid transparent; }
+.swatches button.on { border-color: #fff; }
+.opts { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; }
+.opt { text-align: left; background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 9px 11px; color: var(--text); }
+.opt:hover { border-color: var(--line-2); }
+.opt.on { border-color: var(--accent); background: #ff4d6d14; }
+.opt small { display: block; color: var(--muted); font-size: 11px; margin-top: 2px; }
+.pick { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 4px 10px; max-height: 190px; overflow-y: auto; padding: 8px; background: #0005; border: 1px solid var(--line); border-radius: 8px; }
+.pick label { display: flex; gap: 6px; align-items: center; font-size: 12px; cursor: pointer; white-space: nowrap; overflow: hidden; }
+.pick label .q { margin-left: auto; color: var(--dim); font-family: var(--mono); font-size: 11px; }
+.plant { display: grid; grid-template-columns: 26px 1fr auto; gap: 2px 10px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.plant.locked { opacity: .45; }
+.plant .ic { grid-row: span 2; font-size: 20px; }
+details summary { cursor: pointer; color: var(--muted); font-size: 12px; margin: 10px 0 6px; }
+kbd { font-family: var(--mono); font-size: 11px; background: #ffffff14; border: 1px solid var(--line-2); border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; }
+.how li { margin-bottom: 6px; color: var(--muted); } .how b { color: var(--text); }
+
+@media (max-width: 900px) {
+  :root { --top: 50px; --rail: 0px; }
+  .stat.hide-sm, .brand small { display: none; }
+  .stats { gap: 12px; }
+  #rail { top: auto; bottom: 0; left: 0; right: 0; width: auto; height: 58px; flex-direction: row; justify-content: space-around; padding: 4px; border-right: 0; border-top: 1px solid var(--line); }
+  #rail button { flex: 1; padding: 6px 0 4px; }
+  #rail button.on { box-shadow: inset 0 3px 0 var(--accent); }
+  .panel, #right { left: 8px !important; right: 8px; width: auto; top: auto; bottom: 66px; height: 58vh; }
+  #toasts { bottom: 74px; }
+  #scale { bottom: 72px; }
+  #fxbar { max-width: 90vw; }
+}
+@media (max-width: 560px) {
+  #top { gap: 8px; padding: 0 8px; }
+  .brand > div:last-child { display: none; }
+  .stats { margin-left: 0; flex: 1; }
+  .stat.hide-xs { display: none; }
+  .speed button { padding: 6px 7px; font-size: 11px; }
+  .iconbtn { width: 32px; flex: none; }
+  #toasts { top: calc(var(--top) + 8px); bottom: auto; flex-direction: column; }
+  .toast { font-size: 12px; padding: 7px 10px; }
+  .toast:nth-child(n+3) { display: none; }
+}
+</style>
 </head>
-<body class="page-home" data-root="">
-<a class="skip-link" href="#main">Skip to content</a>
-<div class="curtain" aria-hidden="true"><span><svg class="curtain-roundel" width="56" height="56" viewBox="0 0 42 42" aria-hidden="true"><circle cx="21" cy="21" r="20" fill="none" stroke="#C8102E" stroke-width="1.5"/><circle cx="21" cy="21" r="13" fill="none" stroke="currentColor" stroke-width="1"/><circle cx="21" cy="21" r="6" fill="#C8102E"/><path d="M1 21 L15 18 L15 24 Z" fill="#C8102E" opacity="0.6"/><path d="M41 21 L27 18 L27 24 Z" fill="#C8102E" opacity="0.6"/></svg></span></div>
-<header class="site-nav" data-nav>
-  <a class="nav-logo" href="" aria-label="British Aircraft Corporation — home">
-    <svg class="nav-roundel" width="42" height="42" viewBox="0 0 42 42" aria-hidden="true"><circle cx="21" cy="21" r="20" fill="none" stroke="#C8102E" stroke-width="1.5"/><circle cx="21" cy="21" r="13" fill="none" stroke="currentColor" stroke-width="1"/><circle cx="21" cy="21" r="6" fill="#C8102E"/><path d="M1 21 L15 18 L15 24 Z" fill="#C8102E" opacity="0.6"/><path d="M41 21 L27 18 L27 24 Z" fill="#C8102E" opacity="0.6"/></svg>
-    <span class="nav-wordmark">British Aircraft Corporation<span>Est. 2024 · Bristol, England</span></span>
-  </a>
-  <nav aria-label="Primary">
-    <ul class="nav-links">
-        <li class="has-mega"><a href="fleet/">Fleet</a>
-          <div class="mega" role="group" aria-label="Fleet">
-            <div class="mega-inner">
-            <a class="mega-item" href="fleet/1-11nxt.html">
-              <img src="assets/img/fleet/1-11nxt-34.webp" alt="" loading="lazy" width="320" height="180">
-              <span class="mega-name">BAC 1-11NXT</span>
-              <span class="mega-role">Narrow-body</span>
-            </a>
-            <a class="mega-item" href="fleet/2-22.html">
-              <img src="assets/img/fleet/2-22-34.webp" alt="" loading="lazy" width="320" height="180">
-              <span class="mega-name">BAC 2-22</span>
-              <span class="mega-role">Medium narrow-body</span>
-            </a>
-            <a class="mega-item" href="fleet/3-33.html">
-              <img src="assets/img/fleet/3-33-34.webp" alt="" loading="lazy" width="320" height="180">
-              <span class="mega-name">BAC 3-33</span>
-              <span class="mega-role">Wideboy widebody</span>
-            </a>
-            <a class="mega-item" href="fleet/4-44.html">
-              <img src="assets/img/fleet/4-44-34.webp" alt="" loading="lazy" width="320" height="180">
-              <span class="mega-name">BAC 4-44</span>
-              <span class="mega-role">Long-range widebody</span>
-            </a>
-            <a class="mega-item" href="fleet/4-44ulr.html">
-              <img src="assets/img/fleet/4-44ulr-34.webp" alt="" loading="lazy" width="320" height="180">
-              <span class="mega-name">BAC 4-44ULR</span>
-              <span class="mega-role">Ultra-long-range widebody</span>
-            </a>
-            </div>
-          </div>
-        </li>
-        <li><a href="engineering/">Engineering</a></li>
-        <li><a href="range/">Range</a></li>
-        <li><a href="heritage/">Heritage</a></li>
-        <li><a href="news/">Newsroom</a></li>
-        <li><a href="careers/">Careers</a></li>
-    </ul>
-  </nav>
-  <a href="contact/" class="nav-cta">Order enquiry</a>
-  <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="mobile-menu" aria-label="Open menu"><span></span><span></span></button>
+<body>
+<canvas id="map" aria-label="World map"></canvas>
+
+<header id="top">
+  <div class="brand"><div class="logo" id="logo">MNC</div><div><b id="coName">MNC Simulator</b><small id="coSub">Multinational Company Simulator</small></div></div>
+  <div class="stats">
+    <div class="stat hide-xs"><label>Date</label><span id="hDate">—</span></div>
+    <div class="stat"><label>Cash</label><span id="hCash">—</span></div>
+    <div class="stat hide-sm"><label>Net worth</label><span id="hWorth">—</span></div>
+    <div class="stat hide-sm"><label>Profit 30d</label><span id="hProfit">—</span></div>
+    <div class="stat hide-sm"><label>Rank</label><span id="hRank">—</span></div>
+  </div>
+  <div class="speed" id="speed" role="group" aria-label="Game speed"></div>
+  <button class="iconbtn" id="menuBtn" aria-label="Menu" title="Menu">☰</button>
 </header>
-<div class="mobile-menu" id="mobile-menu" hidden>
-  <nav aria-label="Mobile">
-    <ol>
-      <li><a href="">Home</a></li>
-      <li><a href="fleet/">Fleet</a></li>
-      <li><a href="engineering/">Engineering</a></li>
-      <li><a href="range/">Range</a></li>
-      <li><a href="heritage/">Heritage</a></li>
-      <li><a href="news/">Newsroom</a></li>
-      <li><a href="careers/">Careers</a></li>
-      <li><a href="contact/">Order enquiry</a></li>
-    </ol>
-  </nav>
-  <p class="mobile-menu-foot">Filton · Broughton · Derby</p>
-</div>
-<main id="main">
-<section class="home-hero" id="flight" aria-label="The BAC 4-44ULR in flight">
-  <div class="hero-sticky">
-    <div class="hero-canvas" data-hero-canvas>
-      <div class="hero-fallback" data-hero-fallback style="background-image:url(assets/img/hero-dusk.jpg)"></div>
-    </div>
-    <div class="hero-shade" aria-hidden="true"></div>
 
-    <div class="hero-layer" data-hero-layer>
-      <div class="hero-content">
-        <div class="hero-eyebrow">
-          <span class="hero-eyebrow-line"></span>
-          <span class="hero-eyebrow-text">British Aircraft Corporation</span>
-        </div>
-        <h1 class="display hero-headline">
-          <span class="split-line"><span style="--d:.55s">Britain builds</span></span>
-          <span class="split-line"><span style="--d:.68s">the world's <em>finest</em></span></span>
-          <span class="split-line"><span style="--d:.81s">aircraft.</span></span>
-        </h1>
-        <p class="hero-sub">From the narrow-body BAC 1-11NXT to the ultra-long-range BAC 4-44ULR, every aircraft we build carries the precision, ambition and character of British engineering.</p>
-        <div class="hero-actions">
-          <a href="fleet/" class="btn btn-primary">Explore the fleet <span class="arrow" aria-hidden="true">→</span></a>
-          <a href="contact/" class="btn">Order enquiry</a>
-        </div>
-      </div>
-      <div class="hero-stats" aria-label="At a glance">
-        <div><div class="hero-stat-num"><span data-count="5">5</span></div><div class="hero-stat-label">Aircraft families</div></div>
-        <div><div class="hero-stat-num"><span data-count="19000" data-format="comma">19,000</span><small>km</small></div><div class="hero-stat-label">Max ULR range</div></div>
-        <div><div class="hero-stat-num"><span data-count="100">100</span><small>%</small></div><div class="hero-stat-label">British engineering</div></div>
-      </div>
-      <a class="scroll-cue" href="#fleet"><span class="scroll-cue-line"></span><span>Scroll to fly</span></a>
-      <div class="hud" aria-hidden="true">
-        <div><span class="live"></span><b>G-ULRA</b> · BAC 4-44ULR</div>
-        <div>LHR → SYD · FL410</div>
-        <div>GS <b data-hud-gs>915</b> km/h · <span data-hud-clock>19h 10m</span> remaining</div>
-      </div>
-    </div>
+<nav id="rail" aria-label="Panels"></nav>
+<aside id="left" class="panel" hidden></aside>
+<aside id="right" class="panel" hidden></aside>
+<div id="fxbar"></div>
+<div id="toasts" aria-live="polite"></div>
+<div id="tip"></div>
+<div id="scale"></div>
+<div id="modal" hidden><div class="mc" id="mc"></div></div>
 
-    <div class="story" aria-live="polite">
-      <article class="chapter left" data-chapter="1">
-        <span class="chapter-num">01 / 03 — Range</span>
-        <h2>London to Sydney. <em>Nonstop.</em></h2>
-        <p>19,000 km of certified range. The 4-44ULR flies the Kangaroo Route in a single leg — no Singapore, no Dubai, no compromise.</p>
-        <div class="chapter-stat"><div><b>17,020</b><small>km great circle</small></div><div><b>19h 10m</b><small>block time</small></div></div>
-      </article>
-      <article class="chapter right" data-chapter="2">
-        <span class="chapter-num">02 / 03 — Propulsion</span>
-        <h2>Four engines. <em>Absolute redundancy.</em></h2>
-        <p>Four 225 kN ultra-high-bypass turbofans, built in Derby and SAF-100 ready. ETOPS becomes irrelevant; reliability becomes the brief.</p>
-        <div class="chapter-stat"><div><b>4 × 225</b><small>kN thrust</small></div><div><b>127,000</b><small>litres of fuel</small></div></div>
-      </article>
-      <article class="chapter left" data-chapter="3">
-        <span class="chapter-num">03 / 03 — Cabin</span>
-        <h2>Designed for the <em>twenty-first hour.</em></h2>
-        <p>Circadian lighting across 21 time zones, a 4,000 ft cabin altitude and a dedicated wellness zone. Arrive the way you departed.</p>
-        <div class="chapter-stat"><div><b>21h</b><small>max endurance</small></div><div><b>4,000 ft</b><small>cabin altitude</small></div></div>
-      </article>
-    </div>
-    <div class="story-progress" aria-hidden="true"><i></i><i></i><i></i></div>
-  </div>
-</section>
-
-<div class="ticker" aria-label="Programme status">
-  <div class="ticker-track">
-    <span class="ticker-item">1-11NXT · First metal cut at Filton</span>
-    <span class="ticker-item">2-22 · ETOPS-240 at entry into service</span>
-    <span class="ticker-item">3-33 Wideboy · Wing ultimate load test complete</span>
-    <span class="ticker-item">4-44 · 18:1 bypass ratio</span>
-    <span class="ticker-item">4-44ULR · London–Sydney nonstop</span>
-    <span class="ticker-item">Built in Bristol · Broughton · Derby</span>
-    <span class="ticker-item">1-11NXT · First metal cut at Filton</span>
-    <span class="ticker-item">2-22 · ETOPS-240 at entry into service</span>
-    <span class="ticker-item">3-33 Wideboy · Wing ultimate load test complete</span>
-    <span class="ticker-item">4-44 · 18:1 bypass ratio</span>
-    <span class="ticker-item">4-44ULR · London–Sydney nonstop</span>
-    <span class="ticker-item">Built in Bristol · Broughton · Derby</span>
-  </div>
-</div>
-
-<section class="section" id="fleet">
-  <div class="container">
-    <div class="section-head">
-      <div>
-        <span class="section-label reveal">The fleet</span>
-        <h2 class="h2"><span class="split-line"><span>Five aircraft.</span></span><span class="split-line"><span style="--d:.1s">Every <em>mission.</em></span></span></h2>
-      </div>
-      <p class="reveal">From thin domestic routes to 20-hour nonstop ultra-long-haul, the BAC family covers every commercial aviation requirement with purpose-built precision.</p>
-    </div>
-    <div class="fleet-grid reveal-group">
-      
-    <a class="fleet-card reveal" href="fleet/1-11nxt.html" data-tilt>
-      <span class="fleet-designator" aria-hidden="true">1-11NXT</span>
-      <img class="fleet-img" src="assets/img/fleet/1-11nxt-34.webp" alt="BAC 1-11NXT rendered in BAC livery" loading="lazy" width="1280" height="720">
-      <span class="fleet-card-body">
-        <span class="fleet-name-row"><span class="fleet-name">BAC 1-11NXT</span><span class="fleet-tag new">New entry</span></span>
-        <span class="fleet-role">Narrow-body · Short to medium haul</span>
-        <span class="fleet-specs">
-          <span><b>189</b><small>Max seats</small></span>
-          <span><b>5,400<i>km</i></b><small>Range</small></span>
-          
-        </span>
-        <span class="fleet-more">Explore <span aria-hidden="true">→</span></span>
-      </span>
-    </a>
-    <a class="fleet-card reveal" href="fleet/2-22.html" data-tilt>
-      <span class="fleet-designator" aria-hidden="true">2-22</span>
-      <img class="fleet-img" src="assets/img/fleet/2-22-34.webp" alt="BAC 2-22 rendered in BAC livery" loading="lazy" width="1280" height="720">
-      <span class="fleet-card-body">
-        <span class="fleet-name-row"><span class="fleet-name">BAC 2-22</span><span class="fleet-tag ">757 replacement</span></span>
-        <span class="fleet-role">Medium narrow-body · 757 replacement</span>
-        <span class="fleet-specs">
-          <span><b>240</b><small>Max seats</small></span>
-          <span><b>7,200<i>km</i></b><small>Range</small></span>
-          
-        </span>
-        <span class="fleet-more">Explore <span aria-hidden="true">→</span></span>
-      </span>
-    </a>
-    <a class="fleet-card reveal" href="fleet/3-33.html" data-tilt>
-      <span class="fleet-designator" aria-hidden="true">3-33</span>
-      <img class="fleet-img" src="assets/img/fleet/3-33-34.webp" alt="BAC 3-33 rendered in BAC livery" loading="lazy" width="1280" height="720">
-      <span class="fleet-card-body">
-        <span class="fleet-name-row"><span class="fleet-name">BAC 3-33</span><span class="fleet-tag ">Twin aisle</span></span>
-        <span class="fleet-role">Wideboy widebody · 767-400ER class</span>
-        <span class="fleet-specs">
-          <span><b>310</b><small>Max seats</small></span>
-          <span><b>12,000<i>km</i></b><small>Range</small></span>
-          
-        </span>
-        <span class="fleet-more">Explore <span aria-hidden="true">→</span></span>
-      </span>
-    </a>
-    <a class="fleet-card reveal" href="fleet/4-44.html" data-tilt>
-      <span class="fleet-designator" aria-hidden="true">4-44</span>
-      <img class="fleet-img" src="assets/img/fleet/4-44-34.webp" alt="BAC 4-44 rendered in BAC livery" loading="lazy" width="1280" height="720">
-      <span class="fleet-card-body">
-        <span class="fleet-name-row"><span class="fleet-name">BAC 4-44</span><span class="fleet-tag ">Twin engine</span></span>
-        <span class="fleet-role">Long-range widebody · A350 class · Twin engine</span>
-        <span class="fleet-specs">
-          <span><b>369</b><small>Max seats</small></span>
-          <span><b>15,500<i>km</i></b><small>Range</small></span>
-          
-        </span>
-        <span class="fleet-more">Explore <span aria-hidden="true">→</span></span>
-      </span>
-    </a>
-    <a class="fleet-card featured reveal" href="fleet/4-44ulr.html" data-tilt>
-      <span class="fleet-designator" aria-hidden="true">4-44 ULR</span>
-      <img class="fleet-img" src="assets/img/fleet/4-44ulr-34.webp" alt="BAC 4-44ULR rendered in BAC livery" loading="lazy" width="1280" height="720">
-      <span class="fleet-card-body">
-        <span class="fleet-name-row"><span class="fleet-name">BAC 4-44ULR</span><span class="fleet-tag flagship">Flagship</span></span>
-        <span class="fleet-role">Ultra-long-range widebody · Flagship</span>
-        <span class="fleet-specs">
-          <span><b>380</b><small>Max seats</small></span>
-          <span><b>19,000<i>km</i></b><small>Range</small></span>
-          <span><b>21<i>h</i></b><small>Max flight time</small></span><span><b>4</b><small>Engines</small></span>
-        </span>
-        <span class="fleet-more">Explore <span aria-hidden="true">→</span></span>
-      </span>
-    </a>
-    </div>
-    <p style="margin-top:2.5rem" class="reveal"><a class="link-arrow" href="fleet/">Enter the 3D hangar <span aria-hidden="true">→</span></a></p>
-  </div>
-</section>
-
-<section class="section deep rule-top" id="engineering">
-  <div class="container grid-2">
-    <div class="eng-visual reveal" aria-hidden="true">
-      <svg viewBox="0 0 400 400">
-        <defs>
-          <radialGradient id="sg" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#C8102E" stop-opacity=".16"/><stop offset="100%" stop-color="#C8102E" stop-opacity="0"/></radialGradient>
-        </defs>
-        <circle cx="200" cy="200" r="185" fill="url(#sg)"/>
-        <circle cx="200" cy="200" r="165" fill="none" stroke="rgba(200,16,46,.22)" stroke-dasharray="3 9"><animateTransform attributeName="transform" type="rotate" from="0 200 200" to="360 200 200" dur="40s" repeatCount="indefinite"/></circle>
-        <circle cx="200" cy="200" r="125" fill="none" stroke="rgba(255,255,255,.07)" stroke-dasharray="2 6"><animateTransform attributeName="transform" type="rotate" from="360 200 200" to="0 200 200" dur="26s" repeatCount="indefinite"/></circle>
-        <line x1="30" y1="200" x2="370" y2="200" stroke="rgba(255,255,255,.05)"/><line x1="200" y1="30" x2="200" y2="370" stroke="rgba(255,255,255,.05)"/>
-        <g transform="translate(200 200) rotate(-90)" fill="none">
-          <path d="M120 0 C 112 -6, 100 -6.5, 80 -6.5 L -110 -6.5 C -120 -6, -128 -3, -132 0 C -128 3, -120 6, -110 6.5 L 80 6.5 C 100 6.5, 112 6, 120 0 Z" stroke="rgba(240,237,230,.55)" stroke-width="1.2"/>
-          <path d="M28 -6 L -14 -118 L -26 -118 L -8 -6 Z M28 6 L -14 118 L -26 118 L -8 6 Z" stroke="rgba(200,16,46,.75)" stroke-width="1"/>
-          <path d="M-14 -118 L -24 -126 L -30 -124 L -26 -118" stroke="rgba(201,168,76,.9)"/>
-          <path d="M-14 118 L -24 126 L -30 124 L -26 118" stroke="rgba(201,168,76,.9)"/>
-          <g stroke="rgba(201,168,76,.6)"><rect x="14" y="-42" width="22" height="9" rx="4"/><rect x="2" y="-80" width="20" height="8" rx="4"/><rect x="14" y="33" width="22" height="9" rx="4"/><rect x="2" y="72" width="20" height="8" rx="4"/></g>
-          <path d="M-98 -5 L -122 -44 L -129 -44 L -112 -5 Z M-98 5 L -122 44 L -129 44 L -112 5 Z" stroke="rgba(240,237,230,.35)"/>
-          <path d="M-102 -2 L -128 -2 L -126 -1 Z" stroke="rgba(240,237,230,.3)"/>
-          <line x1="-34" y1="-140" x2="-34" y2="140" stroke="rgba(200,16,46,.25)" stroke-dasharray="2 3"/>
-          <line x1="-150" y1="-128" x2="140" y2="-128" stroke="rgba(201,168,76,.18)"/>
-        </g>
-        <g fill="#C8102E">
-          <circle cx="242" cy="175" r="3"><animate attributeName="r" values="2;5;2" dur="2s" repeatCount="indefinite"/><animate attributeName="opacity" values=".9;.2;.9" dur="2s" repeatCount="indefinite"/></circle>
-          <circle cx="158" cy="175" r="3"><animate attributeName="r" values="2;5;2" dur="2.3s" repeatCount="indefinite"/><animate attributeName="opacity" values=".9;.2;.9" dur="2.3s" repeatCount="indefinite"/></circle>
-        </g>
-        <g stroke="rgba(200,16,46,.35)" fill="none"><path d="M30 30v18M30 30h18M370 30h-18M370 30v18M30 370v-18M30 370h18M370 370h-18M370 370v-18"/></g>
-        <text x="22" y="20" fill="rgba(201,168,76,.55)" font-size="8" font-family="IBM Plex Mono, monospace">BAC 4-44ULR</text>
-        <text x="22" y="392" fill="rgba(154,160,172,.45)" font-size="6.5" font-family="IBM Plex Mono, monospace">PLAN VIEW — SPAN 64.8 M — LENGTH 73.4 M</text>
-        <line x1="40" y1="60" x2="360" y2="60" stroke="rgba(200,16,46,.45)" stroke-width=".6"><animateTransform attributeName="transform" type="translate" values="0 0;0 280;0 0" dur="6s" repeatCount="indefinite"/></line>
-      </svg>
-    </div>
-    <div>
-      <span class="section-label reveal">Engineering philosophy</span>
-      <h2 class="h2" style="margin:1rem 0 1.6rem"><span class="split-line"><span>Built to</span></span><span class="split-line"><span style="--d:.1s">outlast the <em>brief.</em></span></span></h2>
-      <p class="lede reveal">Every BAC aircraft is engineered not just to meet today's operational demands, but to adapt to the routes, economics and environmental standards of the next four decades. We design for the long runway.</p>
-      <div class="pillars reveal-group">
-        <div class="pillar reveal">
-          <svg class="pillar-icon" viewBox="0 0 36 36" aria-hidden="true"><rect x="2" y="2" width="32" height="32" fill="none" stroke="rgba(200,16,46,.35)"/><path d="M18 8v20M8 18h20" stroke="#C8102E" stroke-width="1.5" stroke-linecap="round"/><circle cx="18" cy="18" r="5" fill="none" stroke="rgba(200,16,46,.6)"/></svg>
-          <div><div class="pillar-title">Composite-first construction</div><div class="pillar-desc">Over 72% of structural airframe weight in advanced carbon-fibre composites, reducing empty weight and improving fatigue resistance.</div></div>
-        </div>
-        <div class="pillar reveal">
-          <svg class="pillar-icon" viewBox="0 0 36 36" aria-hidden="true"><rect x="2" y="2" width="32" height="32" fill="none" stroke="rgba(200,16,46,.35)"/><path d="M8 26 Q14 10 18 18 Q22 26 28 10" stroke="#C8102E" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>
-          <div><div class="pillar-title">Next-generation propulsion</div><div class="pillar-desc">Ultra-high bypass ratio turbofans on every variant, with SAF-100 compatibility and hydrogen-hybrid readiness built into the architecture.</div></div>
-        </div>
-        <div class="pillar reveal">
-          <svg class="pillar-icon" viewBox="0 0 36 36" aria-hidden="true"><rect x="2" y="2" width="32" height="32" fill="none" stroke="rgba(200,16,46,.35)"/><polygon points="18,8 28,26 8,26" fill="none" stroke="#C8102E" stroke-width="1.5" stroke-linejoin="round"/><circle cx="18" cy="21" r="2" fill="#C8102E"/></svg>
-          <div><div class="pillar-title">British manufacturing</div><div class="pillar-desc">Final assembly at Bristol Filton. Wings from Broughton. Engines from Derby. Every major component from British soil.</div></div>
-        </div>
-      </div>
-      <p style="margin-top:2.4rem" class="reveal"><a class="link-arrow" href="engineering/">Inside the engine <span aria-hidden="true">→</span></a></p>
-    </div>
-  </div>
-</section>
-
-<section class="section tight" aria-label="Programme in numbers">
-  <div class="container">
-    <div class="stats-band reveal-group">
-      <div class="stat reveal"><div class="stat-num"><span data-count="72">72</span><small>%</small></div><div class="stat-label">Composite structure by weight</div></div>
-      <div class="stat reveal"><div class="stat-num"><span data-count="18">18</span><small>:1</small></div><div class="stat-label">Bypass ratio on the 4-44</div></div>
-      <div class="stat reveal"><div class="stat-num">−<span data-count="45">45</span><small>%</small></div><div class="stat-label">Fuel burn versus the aircraft it replaces</div></div>
-      <div class="stat reveal"><div class="stat-num"><span data-count="100">100</span><small>%</small></div><div class="stat-label">SAF compatible from day one</div></div>
-    </div>
-  </div>
-</section>
-
-<section class="section ink range-teaser rule-top" aria-labelledby="range-h">
-  <div class="container grid-2">
-    <div>
-      <span class="section-label reveal">Range explorer</span>
-      <h2 class="h2" id="range-h" style="margin:1rem 0 1.6rem"><span class="split-line"><span>Anywhere to</span></span><span class="split-line"><span style="--d:.1s"><em>anywhere.</em></span></span></h2>
-      <p class="lede reveal">Pick an aircraft, pick a hub, and watch the world shrink. From London Heathrow the 4-44ULR reaches every inhabited continent nonstop.</p>
-      <ul class="route-list reveal" data-route-list>
-        <li><span class="iata">LHR → SYD</span><span>London to Sydney</span><span class="dist">17,020 km</span></li>
-        <li><span class="iata">LHR → AKL</span><span>London to Auckland</span><span class="dist">18,364 km</span></li>
-        <li><span class="iata">LHR → PER</span><span>London to Perth</span><span class="dist">14,508 km</span></li>
-        <li><span class="iata">LHR → SIN</span><span>London to Singapore</span><span class="dist">10,881 km</span></li>
-      </ul>
-      <p style="margin-top:2.4rem" class="reveal"><a class="btn btn-gold" href="range/">Open the range explorer <span class="arrow" aria-hidden="true">→</span></a></p>
-    </div>
-    <div class="globe-mini reveal" data-globe-mini aria-label="Rotating globe showing the 4-44ULR's range from London" role="img"></div>
-  </div>
-</section>
-
-<section class="section heritage-band" aria-labelledby="heritage-h">
-  <div class="container">
-    <span class="section-label reveal" id="heritage-h">Our story</span>
-    <p class="big-quote reveal">Britain invented the jet airliner. It is time we reminded the world of that.</p>
-    <p class="attribution reveal">Sir Peter Hartley, Founding Chairman · Bristol, 2024</p>
-    <div class="h-timeline">
-      <div class="h-tl-item"><div class="h-tl-dot"></div><div class="h-tl-year">1949</div><div class="h-tl-event">de Havilland Comet makes the first jet airliner flight from Hatfield</div></div>
-      <div class="h-tl-item"><div class="h-tl-dot"></div><div class="h-tl-year">1963</div><div class="h-tl-event">The original BAC One-Eleven flies for the first time</div></div>
-      <div class="h-tl-item"><div class="h-tl-dot"></div><div class="h-tl-year">1976</div><div class="h-tl-event">Concorde enters service — the pinnacle of British aerospace</div></div>
-      <div class="h-tl-item"><div class="h-tl-dot"></div><div class="h-tl-year">2024</div><div class="h-tl-event">British Aircraft Corporation incorporated in Bristol</div></div>
-      <div class="h-tl-item"><div class="h-tl-dot"></div><div class="h-tl-year">2031</div><div class="h-tl-event">BAC 4-44ULR first flight — London to Sydney nonstop</div></div>
-    </div>
-    <p style="margin-top:4rem" class="reveal"><a class="link-arrow" href="heritage/">The full story <span aria-hidden="true">→</span></a></p>
-  </div>
-</section>
-
-<section class="section deep rule-top" aria-labelledby="news-h">
-  <div class="container">
-    <div class="section-head">
-      <div><span class="section-label reveal">Newsroom</span><h2 class="h2" id="news-h"><span class="split-line"><span>Latest from <em>Filton.</em></span></span></h2></div>
-      <p class="reveal"><a class="link-arrow" href="news/">All news <span aria-hidden="true">→</span></a></p>
-    </div>
-    <div class="news-grid reveal-group">
-      <a class="news-card reveal" href="news/#first-metal"><time datetime="2026-09-15">15 Sep 2026</time><h3>First metal cut for the 1-11NXT at Filton</h3><p>Production of the first flight-test airframe begins, 62 years after the original One-Eleven took shape a few hundred metres away.</p><span class="fleet-more">Read <span aria-hidden="true">→</span></span></a>
-      <a class="news-card reveal" href="news/#farnborough"><time datetime="2026-07-21">21 Jul 2026</time><h3>The 4-44ULR cabin, revealed at Farnborough</h3><p>A full-scale cabin mock-up debuts the wellness zone and circadian lighting system designed for 20-hour sectors.</p><span class="fleet-more">Read <span aria-hidden="true">→</span></span></a>
-      <a class="news-card reveal" href="news/#broughton"><time datetime="2026-05-06">6 May 2026</time><h3>Wideboy wing passes ultimate load at Broughton</h3><p>The 3-33's composite wing box was taken to 150% of limit load without failure — ahead of schedule.</p><span class="fleet-more">Read <span aria-hidden="true">→</span></span></a>
-    </div>
-  </div>
-</section>
-
-<section class="cta-band" id="contact">
-  <div class="container cta-inner">
-    <h2 class="cta-text reveal">Ready to build the next chapter of aviation?</h2>
-    <div class="cta-actions reveal">
-      <a href="contact/" class="btn btn-white">Submit order enquiry <span class="arrow" aria-hidden="true">→</span></a>
-      <a href="assets/BAC-Fleet-Brochure.pdf" class="btn btn-outline" download>Download fleet brochure</a>
-    </div>
-  </div>
-</section>
-</main>
-<footer class="site-footer">
-  <div class="footer-inner">
-    <div class="footer-brand-col">
-      <a class="footer-brand" href=""><svg class="footer-roundel" width="36" height="36" viewBox="0 0 42 42" aria-hidden="true"><circle cx="21" cy="21" r="20" fill="none" stroke="#C8102E" stroke-width="1.5"/><circle cx="21" cy="21" r="13" fill="none" stroke="currentColor" stroke-width="1"/><circle cx="21" cy="21" r="6" fill="#C8102E"/><path d="M1 21 L15 18 L15 24 Z" fill="#C8102E" opacity="0.6"/><path d="M41 21 L27 18 L27 24 Z" fill="#C8102E" opacity="0.6"/></svg><span>British Aircraft Corporation</span></a>
-      <p class="footer-tagline">Building the aircraft that carry Britain's ambition to every corner of the world.</p>
-      <form class="newsletter" data-newsletter novalidate>
-        <label for="nl-email" class="label-mono">Programme updates</label>
-        <div class="newsletter-row">
-          <input id="nl-email" type="email" name="email" placeholder="you@airline.com" autocomplete="email" required>
-          <button type="submit" aria-label="Subscribe">→</button>
-        </div>
-        <p class="newsletter-msg" role="status" aria-live="polite"></p>
-      </form>
-    </div>
-    <div class="footer-links">
-      <div class="footer-col">
-        <h2 class="footer-col-title">Fleet</h2>
-        <ul>
-          <li><a href="fleet/1-11nxt.html">BAC 1-11NXT</a></li>
-          <li><a href="fleet/2-22.html">BAC 2-22</a></li>
-          <li><a href="fleet/3-33.html">BAC 3-33</a></li>
-          <li><a href="fleet/4-44.html">BAC 4-44</a></li>
-          <li><a href="fleet/4-44ulr.html">BAC 4-44ULR</a></li>
-        </ul>
-      </div>
-      <div class="footer-col">
-        <h2 class="footer-col-title">Company</h2>
-        <ul>
-          <li><a href="engineering/">Engineering</a></li>
-          <li><a href="heritage/">Heritage</a></li>
-          <li><a href="news/">Newsroom</a></li>
-          <li><a href="careers/">Careers</a></li>
-        </ul>
-      </div>
-      <div class="footer-col">
-        <h2 class="footer-col-title">Orders</h2>
-        <ul>
-          <li><a href="contact/">Fleet enquiry</a></li>
-          <li><a href="contact/?type=leasing">Leasing</a></li>
-          <li><a href="contact/?type=support">MRO &amp; support</a></li>
-          <li><a href="range/">Range explorer</a></li>
-          <li><a href="assets/BAC-Fleet-Brochure.pdf" download>Fleet brochure (PDF)</a></li>
-        </ul>
-      </div>
-    </div>
-  </div>
-  <div class="footer-bottom">
-    <p class="footer-copy">© 2026 British Aircraft Corporation Ltd. Registered in England &amp; Wales. Bristol, England.</p>
-    <p class="footer-copy">A design concept. All aircraft specifications provisional and subject to change without notice.</p>
-    <a class="to-top" href="#top" aria-label="Back to top">↑</a>
-  </div>
-</footer>
+<script type="module" src="game.js"></script>
 </body>
 </html>
