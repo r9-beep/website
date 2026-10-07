@@ -105,7 +105,7 @@ export const portOf = c => c.port || [c.lat, c.lon];
 //   interest → below the operating line, included in profit
 //   research, capex, disposal, grant, loan → shown separately, never in profit
 export const LEDGER_DAYS = 30;
-export const PROFIT_CATS = ['sales', 'purchases', 'upkeep', 'logistics', 'stock'];
+export const PROFIT_CATS = ['sales', 'purchases', 'upkeep', 'logistics', 'stock', 'subsidiaries'];
 export function spend(a, cat) { W.S.cash -= a; W.S.today[cat] = (W.S.today[cat] || 0) - a; }
 export function earn(a, cat) { W.S.cash += a; W.S.today[cat] = (W.S.today[cat] || 0) + a; }
 // Totals over the last 30 completed days (fewer early in the game — see ledgerDays()).
@@ -353,13 +353,14 @@ export function assets() {
   }
   for (const deps of Object.values(S.deps)) for (const d of deps) for (const s of d.slots) if (s.o === 'P') b += s.inv * BOOK_BUILDINGS;
   for (const x of S.veh) v += vehicleInvested(x) * BOOK_VEHICLES;
+  for (const l of S.subs || []) b += l.inv * BOOK_BUILDINGS;
   return { buildings: b, inventory: stockValue(), vehicles: v, research: researchInvested() * BOOK_RESEARCH };
 }
 export function netWorth() {
   const a = assets();
   return W.S.cash - W.S.loan + a.buildings + a.inventory + a.vehicles + a.research;
 }
-const histPoint = () => ({ d: W.S.day, w: Math.round(netWorth()), r: W.S.rivals.map(r => Math.round(rivalWorth(r))) });
+const histPoint = () => ({ d: W.S.day, w: Math.round(netWorth()), r: Object.fromEntries(W.S.rivals.map(r => [r.id, Math.round(rivalWorth(r))])) });
 
 // ---------- Research ----------
 export const researchCost = r => r.cost;
@@ -533,6 +534,43 @@ export function vehiclePos(v) {
 export const rivalInfo = id => RIVALS.find(r => r.id === id);
 export const rivalName = rv => rivalInfo(rv.id).name;
 export function rivalWorth(rv) { return rv.cash + rv.invested * 0.8; }
+
+// ---------- Takeovers ----------
+// Shareholders want a premium over book value, and more if the rival is bigger than you.
+export function takeoverPrice(rv) {
+  const w = rivalWorth(rv), prem = 1.3 + Math.min(0.4, Math.max(0, w / Math.max(1, netWorth()) - 1) * 0.2);
+  return Math.round(w * prem / 1e5) * 1e5;
+}
+export function acquireRival(id) {
+  const S = W.S, k = S.rivals.findIndex(r => r.id === id);
+  if (k < 0) return false;
+  const rv = S.rivals[k], info = rivalInfo(id), price = takeoverPrice(rv);
+  if (S.cash < price) return fail(`Taking over ${info.name} costs ${money(price)} — borrow or save up first.`);
+  spend(price, 'capex');
+  // Their cash comes with them.
+  earn(Math.max(0, rv.cash), 'disposal');
+  // Every deposit they held becomes yours; offices open where needed.
+  let slots = 0;
+  for (const [cid, deps] of Object.entries(S.deps)) deps.forEach(d => d.slots.forEach(sl => {
+    if (sl.o !== id) return;
+    if (!S.sites[cid]) openSite(cid, true);
+    const site = S.sites[cid];
+    Object.assign(sl, { o: 'P', pl: 0 });
+    if (site.sell[d.g] == null) site.sell[d.g] = !site.fac.some(f => GOODS[f.g].inputs[d.g]);
+    markSeen(site, d.g);
+    slots++;
+  }));
+  // Their product lines keep running as subsidiaries that earn a margin in their markets.
+  S.subs ||= [];
+  for (const l of rv.lines) S.subs.push({ ...l, from: id, inv: BUILD_COST[GOODS[l.g].tier] });
+  S.rivals.splice(k, 1);
+  S.offers = S.offers.filter(o => o.rid !== id);
+  S.acquired = (S.acquired || 0) + 1;
+  news(`${S.name} completes a ${money(price)} takeover of ${info.name}, gaining ${slots} resource sites and ${rv.lines.length} product lines.`);
+  W.hooks.toast(`🤝 ${info.name} is now part of ${S.name}`, 'good');
+  W.hooks.changed('map'); W.hooks.changed('ghosts');
+  return true;
+}
 export function rivalSlots(rv) {
   const out = [];
   for (const [cid, deps] of Object.entries(W.S.deps)) deps.forEach((d, di) => d.slots.forEach((s, si) => { if (s.o === rv.id) out.push({ cid, di, si, g: d.g, lvl: s.lvl, rich: d.rich }); }));
@@ -713,6 +751,7 @@ export const GOALS = [
   { id: 'w100', name: 'Large-cap', desc: 'Reach $100M net worth.', reward: 5e6, test: () => netWorth() >= 100e6 },
   { id: 'cars', name: 'Gigafactory', desc: 'Produce 100 Electric Cars.', reward: 6e6, test: () => (W.S.made.cars || 0) >= 100 },
   { id: 'air', name: 'Wings', desc: 'Build an Airliner.', reward: 10e6, test: () => (W.S.made.airliners || 0) >= 1 },
+  { id: 'mna', name: 'Corporate raider', desc: 'Take over a rival company.', reward: 5e6, test: () => (W.S.acquired || 0) >= 1 },
   { id: 'top', name: 'Market leader', desc: 'Stay #1 on the leaderboard by net worth for 60 days.', reward: 10e6, test: () => W.S.day > 180 && (W.S.leadDays || 0) >= 60 },
   { id: 'navy', name: 'Arsenal of democracy', desc: 'Build a Warship or Fighter Jet.', reward: 12e6, test: () => (W.S.made.warships || 0) + (W.S.made.fighter_jets || 0) >= 1 },
   { id: 'space', name: 'Liftoff', desc: 'Build a Launch Rocket.', reward: 15e6, test: () => (W.S.made.rockets || 0) >= 1 },
@@ -824,6 +863,11 @@ function dailyTick() {
   }
   for (const r of REG) { const m = S.mkt[r]; for (const g of GOOD_IDS) m[g] *= 0.96; }
   rivalsTick();
+  for (const l of S.subs || []) {
+    l.pl = l.rate * price(l.g, l.r) * 0.16 - UPKEEP[GOODS[l.g].tier] * 0.6;
+    S.today.subsidiaries = (S.today.subsidiaries || 0) + l.pl; S.cash += l.pl;
+    S.mkt[l.r][l.g] += l.rate;
+  }
   if (S.res.cur) {
     S.res.prog += researchSpeed();
     const r = RESEARCH_BY[S.res.cur];

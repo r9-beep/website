@@ -587,7 +587,7 @@ const LEFT = {
       <tr><td><b>Net worth</b></td><td class="n"><b>${money(G.netWorth())}</b></td></tr></table></div>`;
     if (S.offers.length) h += `<h3>Offers for your operations</h3>` + S.offers.map(offerCard).join('');
     h += `<h3>${days >= G.LEDGER_DAYS ? 'Last 30 days' : `Last ${days} day${days === 1 ? '' : 's'}`}</h3><div class="card"><table>
-      ${row('Sales', 'sales')}${row('Market purchases', 'purchases')}${row('Site upkeep', 'upkeep')}${row('Shipping &amp; flights', 'logistics')}
+      ${row('Sales', 'sales')}${(S.subs || []).length ? row('Subsidiaries', 'subsidiaries') : ''}${row('Market purchases', 'purchases')}${row('Site upkeep', 'upkeep')}${row('Shipping &amp; flights', 'logistics')}
       ${row('Change in stock value', 'stock', 'Goods made but not yet sold count here; selling or using them moves value back out')}
       <tr><td><b>Operating profit</b></td><td class="n"><b class="${op >= 0 ? 'good' : 'bad'}">${money(op)}</b></td></tr>
       ${row('Interest', 'interest')}
@@ -676,7 +676,15 @@ const LEFT = {
     let h = head('🏆 Leaderboard', 'Net worth of every multinational in the game') + '<div class="pb">';
     const max = rows[0].w;
     h += rows.map((r, i) => `<div class="lead"><span class="mono dim">${i + 1}</span><div><div class="row"><span class="sw" style="background:${r.color}"></span><b class="grow">${esc(r.name)}${r.id === 'P' ? ' (you)' : ''}</b></div><div class="bar" style="margin-top:5px"><i style="width:${Math.max(2, r.w / max * 100)}%;background:${r.color}"></i></div><div class="dim" style="font-size:11px;margin-top:3px">${r.slots} resource sites · ${r.lines} plants${r.hq ? ` · HQ ${esc(CITY[r.hq].name)} · tech tier ${r.tech}` : ''}</div></div><span class="mono">${money(r.w)}</span></div>`).join('');
-    h += `<h3>Their focus</h3>` + S.rivals.map(rv => { const i = G.rivalInfo(rv.id); return `<div class="card"><div class="row"><span class="sw" style="width:10px;height:10px;border-radius:3px;background:${i.color}"></span><b class="grow">${esc(i.name)}</b></div><div class="recipe" style="margin-top:6px">${i.pref.map(g => goodChip(g)).join('')}</div></div>`; }).join('');
+    h += `<h3>Takeover targets</h3><p class="dim" style="font-size:12px;margin-top:0">Buy a rival outright: you pay a premium over its worth, get its cash, every deposit it holds and its product lines (which keep earning as subsidiaries), and it leaves the leaderboard.</p>`;
+    h += S.rivals.map(rv => {
+      const i = G.rivalInfo(rv.id), price = G.takeoverPrice(rv), slots = G.rivalSlots(rv).length;
+      return `<div class="card" data-key="tk-${rv.id}"><div class="row"><span class="sw" style="width:10px;height:10px;border-radius:3px;background:${i.color}"></span><b class="grow">${esc(i.name)}</b><button class="btn sm ${S.cash >= price ? 'p' : ''}" data-act="acquire" data-id="${rv.id}" ${S.cash >= price ? '' : 'disabled'}>Acquire ${money(price)}</button></div>
+        <div class="dim one" style="font-size:11px;margin-top:4px">Worth ${money(G.rivalWorth(rv))} · ${money(Math.max(0, rv.cash))} cash · ${slots} deposits · ${rv.lines.length} product lines</div>
+        <div class="recipe one" style="margin-top:6px">${i.pref.map(g => goodChip(g)).join('')}</div></div>`;
+    }).join('') || '<p class="muted">You own them all. 👑</p>';
+    const subs = S.subs || [];
+    if (subs.length) h += `<h3>Your subsidiaries <span class="r dim">${subs.length} product lines</span></h3>` + subs.map((l, k) => `<div class="row" data-key="sub-${k}" style="padding:4px 0"><span class="ic">${GOODS[l.g].icon}</span><span class="grow one">${esc(GOODS[l.g].name)} <span class="dim">· ${esc(REGIONS[l.r].name)} · ex-${esc(G.rivalInfo(l.from).name)}</span></span><span class="mono ${plClass(l.pl)}">${perDay(l.pl)}</span></div>`).join('');
     h += `<p class="dim" style="font-size:12px">Rivals claim deposits, build plants and dump output into regional markets. Every slot they take is one you can’t — unless you buy them out from the city panel.</p>`;
     return h + '</div>';
   },
@@ -721,7 +729,8 @@ function spark() {
   const X = i => i / (H.length - 1) * w, Y = v => h - 4 - (v - min) / (max - min) * (h - 8);
   const line = (vals, color, wdt, op) => `<polyline fill="none" stroke="${color}" stroke-width="${wdt}" stroke-opacity="${op}" stroke-linejoin="round" points="${vals.map((v, i) => `${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join(' ')}"/>`;
   let s = `<svg class="spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">`;
-  W.S.rivals.forEach((rv, k) => { s += line(H.map(p => p.r[k] ?? 0), rivalColor(rv.id), 1, 0.55); });
+  // History rows are keyed by rival id (older saves stored an array in RIVALS order).
+  W.S.rivals.forEach(rv => { const k = RIVALS.findIndex(r => r.id === rv.id); s += line(H.map(p => (Array.isArray(p.r) ? p.r[k] : p.r[rv.id]) ?? 0), rivalColor(rv.id), 1, 0.55); });
   s += line(H.map(p => p.w), W.S.color, 2.2, 1);
   return s + '</svg>';
 }
@@ -999,6 +1008,7 @@ const ACT = {
   'up-ext': d => { G.upgradeExtractor(d.c, +d.d, +d.s); after(); },
   'sell-ext': d => { if (confirm('Sell this extractor for 45% of what you put in?')) { G.sellExtractor(d.c, +d.d, +d.s); after(); } },
   buyout: d => { const cost = G.buyoutCost(d.c, +d.d, +d.s); if (confirm(`Buy out this operation for ${money(cost)}? That's well above the cost of building one.`)) { G.buyout(d.c, +d.d, +d.s); after(); } },
+  acquire: d => { const rv = W.S.rivals.find(r => r.id === d.id); if (rv && confirm(`Take over ${G.rivalInfo(rv.id).name} for ${money(G.takeoverPrice(rv))}? You get its ${money(Math.max(0, rv.cash))} cash, ${G.rivalSlots(rv).length} deposits and ${rv.lines.length} product lines.`)) { G.acquireRival(d.id); after(); } },
   offer: d => { const ok = W.S.offers.some(o => o.id === d.id); if (!ok) toast('That offer has expired.', 'warn'); else G.answerOffer(d.id, d.v === '1'); after(); },
   'open-site': d => { if (G.openSite(d.c)) toast(`🏢 Office opened in ${CITY[d.c].name}`, 'good'); after(); },
   'up-wh': d => { G.upgradeWarehouse(d.c); after(); },
