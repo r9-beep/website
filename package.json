@@ -2,6 +2,7 @@
   "name": "mnc-simulator",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "description": "MNC Simulator — a multinational company strategy game on a to-scale world map.",
   "scripts": {
     "serve": "npx http-server -p 8080 -c-1 ."

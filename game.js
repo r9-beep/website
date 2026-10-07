@@ -2,7 +2,7 @@
 import { COUNTRIES } from './world.js';
 import * as Sea from './sea.js';
 import * as G from './sim.js';
-import { GOODS, GOOD_IDS, EQUIPMENT, COMMISSION, SECTORS, REGIONS, CITIES, CITY, RESEARCH, RESEARCH_BY, VEHICLES, RIVALS, COLORS, STORE_CAP } from './data.js';
+import { GOODS, GOOD_IDS, EQUIPMENT, COMMISSION, SECTORS, REGIONS, CITIES, CITY, RESEARCH, RESEARCH_BY, VEHICLES, RIVALS, COLORS, STORE_CAP, cyclesPerDay } from './data.js';
 
 const { W, money } = G;
 const $ = s => document.querySelector(s);
@@ -18,7 +18,7 @@ const dateStr = d => G.dateOf(d).toLocaleDateString('en-GB', { day: 'numeric', m
 // ---------- Runtime state ----------
 const R = {
   sel: null, tab: null, dirty: true, hover: null, fly: null, ghosts: [], ghostQueue: [],
-  tint: new Map(), modal: null, mkGood: 'crude', codex: 'oil', plantSector: 'all', panelHold: false,
+  tint: new Map(), modal: null, mkGood: 'crude', codex: 'oil', plantSector: 'all', scroll: {}, hot: null, panelHold: false,
   lastUI: 0, lastHUD: 0, lastSave: 0, paused: false
 };
 
@@ -440,7 +440,10 @@ function updateHUD() {
   $('#hDate').textContent = dateStr(S.day);
   const cash = $('#hCash'); cash.textContent = money(S.cash); cash.className = S.cash < 0 ? 'neg' : '';
   $('#hWorth').textContent = money(G.netWorth());
-  const p = G.operatingProfit(), pe = $('#hProfit'); pe.textContent = money(p); pe.className = p >= 0 ? 'pos' : 'neg';
+  const p = G.netProfit(), pe = $('#hProfit'), days = G.ledgerDays();
+  pe.textContent = days ? money(p) : '—'; pe.className = !days ? '' : p >= 0 ? 'pos' : 'neg';
+  $('#hProfitL').textContent = days >= G.LEDGER_DAYS ? 'Profit 30d' : `Profit ${days}d`;
+  renderOffers();
   $('#hRank').textContent = `#${G.rank()} of ${S.rivals.length + 1}`;
   document.querySelectorAll('#speed button').forEach((b, i) => b.classList.toggle('on', i === S.speed));
   // Live world effects strip.
@@ -474,85 +477,143 @@ function setTab(t) {
 }
 function alerts() {
   const S = W.S, out = [];
+  if (S.overdrawn) out.push({ t: `Overdrawn — ${45 - S.overdrawn} days to fix it`, k: 'bad' });
   for (const [cid, site] of Object.entries(S.sites)) {
     const c = CITY[cid];
-    if (G.storeUsed(site) > G.storeCap(site) * 0.95) out.push({ cid, t: `${c.name}: warehouse full`, k: 'warn' });
-    for (const f of site.fac) if (f.miss && f.util < 0.6) out.push({ cid, t: `${c.name}: ${GOODS[f.g].family} ${f.miss === '__full' ? 'blocked — no storage' : `short of ${GOODS[f.miss].name}`}`, k: 'warn' });
+    const stalled = S.deps[cid].some(d => d.slots.some(sl => sl.o === 'P' && sl.st === 'full'));
+    if (stalled) out.push({ cid, t: `${c.name}: warehouse full — extractors stopped`, k: 'warn' });
+    for (const f of site.fac) {
+      if (f.miss && f.util < 0.6) out.push({ cid, t: `${c.name}: ${GOODS[f.g].family} ${f.miss === '__full' ? 'blocked — no storage' : `short of ${GOODS[f.miss].name}`}`, k: 'warn' });
+      else if ((f.age || 0) > 20 && f.pl < -500) out.push({ cid, t: `${c.name}: ${GOODS[f.g].family} losing ≈${money(-f.pl)}/day`, k: 'warn' });
+    }
   }
-  for (const v of S.veh) if (v.st === 'stuck' || !v.a || !v.b) out.push({ vid: v.id, t: `${v.name}: ${v.msg || 'idle'}`, k: 'bad' });
-  if (S.overdrawn) out.unshift({ t: `Overdrawn — ${45 - S.overdrawn} days to fix it`, k: 'bad' });
+  for (const v of S.veh) {
+    if (v.st === 'stuck' || !v.a || !v.b) out.push({ vid: v.id, t: `${v.name}: ${v.msg || 'needs a route'}`, k: 'bad' });
+    else if (v.st === 'dock' && v.msg && v.wait > 6) out.push({ vid: v.id, t: `${v.name}: ${v.msg}`, k: 'warn' });
+  }
   return out;
 }
-function setHTML(el, html) {
-  if (el.innerHTML === html) return;
-  const pb = el.querySelector('.pb'), top = pb ? pb.scrollTop : 0;
-  el.innerHTML = html;
-  const nb = el.querySelector('.pb'); if (nb) nb.scrollTop = top;
+
+// Patch a panel in place instead of replacing it, so the element under the cursor, keyboard focus,
+// text selection, scroll position and open <details> all survive the twice-a-second refresh.
+const tpl = document.createElement('template');
+function patchAttrs(o, n) {
+  const keepOpen = o.nodeName === 'DETAILS';
+  for (const { name, value } of [...n.attributes]) if (!(keepOpen && name === 'open') && o.getAttribute(name) !== value) o.setAttribute(name, value);
+  for (const { name } of [...o.attributes]) if (!n.hasAttribute(name) && !(keepOpen && name === 'open')) o.removeAttribute(name);
+  if (o.nodeName === 'INPUT') {
+    if (o.type === 'checkbox' || o.type === 'radio') { const c = n.hasAttribute('checked'); if (o.checked !== c) o.checked = c; }
+    else if (document.activeElement !== o) { const v = n.getAttribute('value') ?? ''; if (o.value !== v) o.value = v; }
+  }
+}
+function patchChildren(a, b) {
+  const an = [...a.childNodes], bn = [...b.childNodes];
+  bn.forEach((n, i) => {
+    const o = an[i];
+    if (!o) { a.appendChild(n); return; }
+    if (o.nodeType !== n.nodeType || o.nodeName !== n.nodeName || (o.nodeType === 1 && o.getAttribute('data-key') !== n.getAttribute('data-key'))) { a.replaceChild(n, o); return; }
+    if (o.nodeType !== 1) { if (o.nodeValue !== n.nodeValue) o.nodeValue = n.nodeValue; return; }
+    patchAttrs(o, n);
+    patchChildren(o, n);
+    if (o.nodeName === 'SELECT' && document.activeElement !== o) { const sel = n.querySelector('option[selected]'); if (sel && o.value !== sel.value) o.value = sel.value; }
+  });
+  for (let i = an.length - 1; i >= bn.length; i--) a.removeChild(an[i]);
+}
+function setHTML(el, html, key) {
+  if (el._html === html && el._key === key) return;
+  const pb = el.querySelector('.pb');
+  if (el._key !== key && pb) R.scroll[el._key] = pb.scrollTop;
+  el._html = html;
+  tpl.innerHTML = html;
+  patchChildren(el, tpl.content);
+  // Each view (tab, city, vehicle) remembers its own scroll position.
+  if (el._key !== key) { const nb = el.querySelector('.pb'); if (nb) nb.scrollTop = R.scroll[key] || 0; el._key = key; }
 }
 function renderPanels(force = false) {
   const S = W.S; if (!S) return;
   const left = $('#left'), right = $('#right');
-  const busy = el => R.panelHold || (el.contains(document.activeElement) && document.activeElement.matches('input, select'));
-  if (R.tab) { left.hidden = false; if (force || !busy(left)) setHTML(left, LEFT[R.tab]()); } else left.hidden = true;
+  // While a finger or mouse button is down in a panel, leave it alone so the press lands where it started.
+  const busy = !force && held.size > 0;
+  if (R.tab) { left.hidden = false; if (!busy) setHTML(left, LEFT[R.tab](), `tab:${R.tab}:${R.tab === 'codex' ? R.codex : ''}`); } else left.hidden = true;
   let rh = null;
   if (R.sel?.type === 'city') rh = cityPanel(CITY[R.sel.id]);
   else if (R.sel?.type === 'veh') { const v = S.veh.find(v => v.id === R.sel.id); if (v) rh = vehiclePanel(v); else R.sel = null; }
-  if (rh) { right.hidden = false; if (force || !busy(right)) setHTML(right, rh); } else right.hidden = true;
+  if (rh) { right.hidden = false; if (!busy) setHTML(right, rh, `${R.sel.type}:${R.sel.id}`); } else right.hidden = true;
   if (innerWidth <= 900 && rh && R.tab) left.hidden = true;
 }
-for (const id of ['#left', '#right']) {
-  $(id).addEventListener('pointerdown', () => { R.panelHold = true; });
-}
-addEventListener('pointerup', () => { setTimeout(() => { R.panelHold = false; }, 0); });
+const held = new Set();
+for (const id of ['#left', '#right', '#mc']) $(id).addEventListener('pointerdown', e => held.add(e.pointerId));
+const release = e => {
+  if (!held.delete(e.pointerId) || held.size) return;
+  if (R.renderOnUp) { R.renderOnUp = false; setTimeout(after, 0); }
+};
+addEventListener('pointerup', release, true);
+addEventListener('pointercancel', release, true);
+addEventListener('blur', () => held.clear());
 
 const head = (title, sub = '', close = 'close-left') => `<div class="ph"><h2>${title}${sub ? `<small>${sub}</small>` : ''}</h2><button class="x" data-act="${close}" aria-label="Close">×</button></div>`;
 const goodChip = (g, q) => `<span title="${esc(GOODS[g].name)}">${GOODS[g].icon} ${q != null ? q : esc(GOODS[g].name)}</span>`;
 const recipeHTML = g => `<div class="recipe">${Object.entries(GOODS[g].inputs).map(([i, q]) => goodChip(i, `${q}× ${GOODS[i].name}`)).join('')}<span>→ ${GOODS[g].out}× ${GOODS[g].name}</span></div>`;
+const perDay = v => v == null ? '—' : `${v >= 0 ? '+' : ''}${money(v)}/day`;
+const plClass = v => v == null ? 'dim' : v >= 0 ? 'good' : 'bad';
+// Smoothed profit of a site's own operations (extractors + plants) at local prices.
+const siteDaily = cid => {
+  const S = W.S; let p = 0, any = false;
+  for (const d of S.deps[cid]) for (const sl of d.slots) if (sl.o === 'P' && sl.pl != null) { p += sl.pl; any = true; }
+  for (const f of S.sites[cid].fac) if (f.pl != null) { p += f.pl; any = true; }
+  return any ? p : null;
+};
+const offerCard = o => {
+  const g = GOODS[W.S.deps[o.cid][o.di].g], rv = G.rivalInfo(o.rid), left = Math.max(0, Math.ceil(o.until - W.S.day));
+  return `<div class="card offer" data-key="offer-${o.id}"><div><span style="color:${rv.color}">●</span> <b>${esc(rv.name)}</b> offers <b class="mono">${money(o.amount)}</b> for your ${g.icon} ${esc(g.name)} operation in ${esc(CITY[o.cid].name)} <span class="dim">· ${left}d left</span></div>
+    <div class="row" style="margin-top:8px"><button class="btn sm p" data-act="offer" data-id="${o.id}" data-v="1">Accept</button><button class="btn sm" data-act="offer" data-id="${o.id}" data-v="0">Decline</button></div></div>`;
+};
 
 const LEFT = {
   empire() {
-    const S = W.S, t = G.ledgerTotals(), a = G.assets();
-    const row = (l, k) => `<tr><td>${l}</td><td class="n ${(t[k] || 0) < 0 ? 'bad' : (t[k] || 0) > 0 ? 'good' : 'dim'}">${money(t[k] || 0)}</td></tr>`;
+    const S = W.S, t = G.ledgerTotals(), a = G.assets(), days = G.ledgerDays();
+    const cell = v => `<td class="n ${v < -0.5 ? 'bad' : v > 0.5 ? 'good' : 'dim'}">${money(v)}</td>`;
+    const row = (l, k, tip = '') => `<tr${tip ? ` title="${tip}"` : ''}><td>${l}</td>${cell(t[k] || 0)}</tr>`;
+    const op = G.operatingProfit(t), np = G.netProfit(t);
+    const cashFlow = Object.entries(t).reduce((x, [k, v]) => k === 'stock' ? x : x + v, 0);
     let h = head('🏢 Empire', `${Object.keys(S.sites).length} sites · ${S.veh.length} vehicles · founded ${dateStr(0)}`) + '<div class="pb">';
-    const al = alerts();
-    if (al.length) h += `<h3>Needs attention</h3>` + al.slice(0, 8).map(x => `<div class="card click" data-act="${x.cid ? 'goto' : x.vid ? 'goto-veh' : 'noop'}" data-id="${x.cid || x.vid || ''}"><span class="${x.k}">●</span> ${esc(x.t)}</div>`).join('');
-    h += `<h3>Finance</h3><div class="card"><table>
+    h += `<h3>Finance</h3><div class="card"><div class="row" style="flex-wrap:wrap;margin-bottom:8px"><button class="btn sm" data-act="borrow" data-v="1000000">Borrow $1M</button><button class="btn sm" data-act="borrow" data-v="5000000">Borrow $5M</button><button class="btn sm" data-act="repay" data-v="1000000" ${S.loan ? '' : 'disabled'}>Repay $1M</button><button class="btn sm" data-act="repay" data-v="1e12" ${S.loan ? '' : 'disabled'}>Repay all</button></div><table>
       <tr><td>Cash</td><td class="n">${money(S.cash)}</td></tr>
-      <tr><td>Loan <span class="dim">@ ${(G.loanRate() * 100).toFixed(0)}% · limit ${money(G.maxLoan())}</span></td><td class="n ${S.loan ? 'warn' : ''}">${money(S.loan)}</td></tr>
-      <tr><td>Buildings</td><td class="n">${money(a.buildings)}</td></tr>
-      <tr><td>Stock &amp; cargo</td><td class="n">${money(a.inventory)}</td></tr>
-      <tr><td>Fleet</td><td class="n">${money(a.vehicles)}</td></tr>
-      <tr><td><b>Net worth</b></td><td class="n"><b>${money(G.netWorth())}</b></td></tr></table>
-      <div class="row" style="margin-top:10px;flex-wrap:wrap"><button class="btn sm" data-act="borrow" data-v="1000000">Borrow $1M</button><button class="btn sm" data-act="borrow" data-v="5000000">Borrow $5M</button><button class="btn sm" data-act="repay" data-v="1000000" ${S.loan ? '' : 'disabled'}>Repay $1M</button><button class="btn sm" data-act="repay" data-v="1e12" ${S.loan ? '' : 'disabled'}>Repay all</button></div></div>`;
-    h += `<h3>Last 30 days</h3><div class="card"><table>${row('Sales', 'sales')}${row('Market purchases', 'purchases')}${row('Site upkeep', 'upkeep')}${row('Shipping &amp; flights', 'logistics')}${row('Research', 'research')}${row('Interest', 'interest')}${row('Grants &amp; disposals', 'other')}
-      <tr><td><b>Operating profit</b></td><td class="n"><b class="${G.operatingProfit() >= 0 ? 'good' : 'bad'}">${money(G.operatingProfit())}</b></td></tr>${row('Capital spend', 'capex')}</table></div>`;
+      <tr><td>Loan <span class="dim">@ ${(G.loanRate() * 100).toFixed(0)}% · limit ${money(G.maxLoan())}</span></td><td class="n ${S.loan ? 'warn' : ''}">${money(-S.loan)}</td></tr>
+      <tr title="Plants, extractors, offices and warehouses at ${G.BOOK_BUILDINGS * 100}% of what you spent"><td>Buildings</td><td class="n">${money(a.buildings)}</td></tr>
+      <tr title="Stock and cargo at ${G.BOOK_STOCK * 100}% of base price"><td>Stock &amp; cargo</td><td class="n">${money(a.inventory)}</td></tr>
+      <tr title="Vehicles at ${G.BOOK_VEHICLES * 100}% of what you paid"><td>Fleet</td><td class="n">${money(a.vehicles)}</td></tr>
+      <tr title="Research at ${G.BOOK_RESEARCH * 100}% of its cost"><td>Technology</td><td class="n">${money(a.research)}</td></tr>
+      <tr><td><b>Net worth</b></td><td class="n"><b>${money(G.netWorth())}</b></td></tr></table></div>`;
+    if (S.offers.length) h += `<h3>Offers for your operations</h3>` + S.offers.map(offerCard).join('');
+    h += `<h3>${days >= G.LEDGER_DAYS ? 'Last 30 days' : `Last ${days} day${days === 1 ? '' : 's'}`}</h3><div class="card"><table>
+      ${row('Sales', 'sales')}${row('Market purchases', 'purchases')}${row('Site upkeep', 'upkeep')}${row('Shipping &amp; flights', 'logistics')}
+      ${row('Change in stock value', 'stock', 'Goods made but not yet sold count here; selling or using them moves value back out')}
+      <tr><td><b>Operating profit</b></td><td class="n"><b class="${op >= 0 ? 'good' : 'bad'}">${money(op)}</b></td></tr>
+      ${row('Interest', 'interest')}
+      <tr><td><b>Profit</b> <span class="dim">(as in the top bar)</span></td><td class="n"><b class="${np >= 0 ? 'good' : 'bad'}">${money(np)}</b></td></tr>
+      <tr><td colspan="2" class="dim" style="font-size:11px;padding-top:10px">Not counted in profit</td></tr>
+      ${row('Research', 'research')}${row('Capital spend', 'capex')}${row('Asset sales', 'disposal')}${row('Goal grants', 'grant')}${row('Loan drawn / repaid', 'loan')}
+      <tr><td><b>Net cash flow</b></td>${cell(cashFlow)}</tr></table></div>`;
     h += `<h3>Net worth <span class="r dim">you vs rivals</span></h3><div class="card">${spark()}</div>`;
-    h += `<h3>Sites</h3>`;
+    h += `<h3>Sites <span class="r dim">≈ profit of own operations</span></h3>`;
     for (const [cid, site] of Object.entries(S.sites)) {
       const c = CITY[cid], ext = S.deps[cid].reduce((n, d) => n + d.slots.filter(s => s.o === 'P').length, 0);
-      const used = G.storeUsed(site), cap = G.storeCap(site);
-      h += `<div class="card click" data-act="goto" data-id="${cid}"><div class="row"><b class="grow">${esc(c.name)}${cid === S.hq ? ' <span class="chip">HQ</span>' : ''}</b><span class="dim">${esc(REGIONS[c.region].name)}</span></div>
+      const used = G.storeUsed(site), cap = G.storeCap(site), pd = siteDaily(cid);
+      h += `<div class="card click" data-key="site-${cid}" data-act="goto" data-id="${cid}"><div class="row"><b class="grow">${esc(c.name)}${cid === S.hq ? ' <span class="chip">HQ</span>' : ''}</b><span class="mono ${plClass(pd)}">${perDay(pd)}</span></div>
         <div class="muted">${ext} extractor${ext === 1 ? '' : 's'} · ${site.fac.length} plant${site.fac.length === 1 ? '' : 's'} · ${num(used)}/${num(cap)} stored</div>
-        <div class="bar ${used / cap > 0.9 ? 'w' : 'g'}" style="margin-top:6px"><i style="width:${Math.min(100, used / cap * 100)}%"></i></div></div>`;
+        <div class="bar ${used / cap > 0.78 ? 'w' : 'g'}" style="margin-top:6px"><i style="width:${Math.min(100, used / cap * 100)}%"></i></div></div>`;
     }
+    const al = alerts();
+    h += `<h3>Needs attention <span class="r dim">${al.length || 'all good'}</span></h3>` + al.slice(0, 10).map((x, i) => `<div class="card click" data-key="al${i}" data-act="${x.cid ? 'goto' : x.vid ? 'goto-veh' : 'noop'}" data-id="${x.cid || x.vid || ''}"><span class="${x.k}">●</span> ${esc(x.t)}</div>`).join('');
     return h + '</div>';
   },
   fleet() {
     const S = W.S;
     let h = head('🚢 Fleet', `${S.veh.filter(v => VEHICLES[v.t].kind === 'ship').length} ships · ${S.veh.filter(v => VEHICLES[v.t].kind === 'plane').length} aircraft`) + '<div class="pb">';
     h += `<button class="btn p block" data-act="buy-veh" ${Object.keys(S.sites).length < 2 ? 'disabled' : ''}>+ Buy a ship or aircraft</button>`;
-    if (Object.keys(S.sites).length < 2) h += `<p class="muted">You need at least two sites to run a route. Open an office or build an extractor somewhere else first.</p>`;
-    h += `<p class="dim" style="font-size:12px">Ships are cheap per tonne but slow and follow real sea lanes through Suez, Panama and the straits. Aircraft fly great circles in a day or two — perfect for chips, not for coal.</p>`;
-    for (const v of S.veh) {
-      const V = VEHICLES[v.t], r = v.b ? G.routeFor(V.kind, v.at === 0 ? v.a : v.b, v.at === 0 ? v.b : v.a) : null;
-      const prog = v.st === 'move' && r ? v.d / r.km : 0, load = G.cargoTotal(v);
-      const status = v.st === 'move' ? `En route to ${CITY[v.at === 0 ? v.b : v.a].name}` : v.st === 'stuck' ? v.msg : v.b ? `At ${CITY[G.stopCity(v)].name}${v.msg ? ' · ' + v.msg : ''}` : `Idle at ${CITY[v.a].name} — needs a route`;
-      h += `<div class="card click" data-act="goto-veh" data-id="${v.id}"><div class="row"><span class="ic">${KIND_ICON[V.kind]}</span><b class="grow">${esc(v.name)} <span class="dim" style="font-weight:400">${esc(V.name)}</span></b><span class="mono dim">${num(load)}/${V.cap}</span></div>
-        <div class="muted">${v.b ? `${esc(CITY[v.a].name)} ⇄ ${esc(CITY[v.b].name)}` : '—'}</div>
-        <div class="${v.st === 'stuck' ? 'bad' : 'dim'}" style="font-size:12px">${esc(status)}</div>
-        ${v.st === 'move' ? `<div class="bar" style="margin-top:6px"><i style="width:${prog * 100}%"></i></div>` : ''}
-        ${load ? `<div class="recipe" style="margin-top:6px">${Object.entries(v.cargo).map(([g, q]) => goodChip(g, num(q))).join('')}</div>` : ''}</div>`;
-    }
+    h += `<p class="dim" style="font-size:12px">${Object.keys(S.sites).length < 2 ? 'You need at least two sites to run a route. Open an office or build an extractor somewhere else first. ' : ''}Ships cost a few dollars per unit to cross an ocean and follow real sea lanes through Suez, Panama and the straits. Aircraft fly great circles in a day or two but cost $100–300 a unit — they pay for goods worth a few thousand dollars or more (devices, servers, lasers, satellites), not ore.</p>`;
+    for (const v of S.veh) h += fleetCard(v);
     return h + '</div>';
   },
   research() {
@@ -582,7 +643,7 @@ const LEFT = {
   markets() {
     const S = W.S, g = R.mkGood, Gd = GOODS[g];
     let h = head('📈 Markets', 'Regional prices move with supply — flood a market and it sags') + '<div class="pb">';
-    h += `<select data-act="mk-good" style="width:100%;background:#0007;border:1px solid var(--line-2);border-radius:8px;padding:7px">${[0, 1, 2, 3, 4].map(t => `<optgroup label="Tier ${t}${t ? '' : ' · raw'}">${GOOD_IDS.filter(x => GOODS[x].tier === t).map(x => `<option value="${x}" ${x === g ? 'selected' : ''}>${GOODS[x].icon} ${GOODS[x].name}</option>`).join('')}</optgroup>`).join('')}</select>`;
+    h += `<select data-act="mk-good" style="width:100%;background:#0007;border:1px solid var(--line-2);border-radius:8px;padding:7px">${[0, 1, 2, 3, 4, 5, 6].map(t => `<optgroup label="Tier ${t}${t ? '' : ' · raw'}">${GOOD_IDS.filter(x => GOODS[x].tier === t).map(x => `<option value="${x}" ${x === g ? 'selected' : ''}>${GOODS[x].icon} ${GOODS[x].name}</option>`).join('')}</optgroup>`).join('')}</select>`;
     const rows = Object.keys(REGIONS).map(r => ({ r, p: G.sellPrice(g, r) })).sort((a, b) => b.p - a.p);
     const max = rows[0].p;
     h += `<h3>${Gd.icon} ${esc(Gd.name)} <span class="r dim">base ${money(Gd.price)}</span></h3>`;
@@ -597,10 +658,14 @@ const LEFT = {
       h += `<h3>Recipe</h3><div class="card">${recipeHTML(g)}<div class="muted" style="margin-top:6px">${esc(Gd.family)} · ${G.researchFor(g)?.name || ''}</div></div>`;
     }
     // Hottest opportunities right now.
-    const hot = [];
-    for (const x of GOOD_IDS) for (const r of Object.keys(REGIONS)) hot.push({ g: x, r, k: G.sellPrice(x, r) / GOODS[x].price });
-    hot.sort((a, b) => b.k - a.k);
-    h += `<h3>Hottest markets</h3>` + hot.slice(0, 8).map(x => `<div class="row click" data-act="mk-pick" data-g="${x.g}" style="padding:4px 0;cursor:pointer"><span class="ic">${GOODS[x.g].icon}</span><span class="grow">${esc(GOODS[x.g].name)} <span class="dim">· ${esc(REGIONS[x.r].name)}</span></span><span class="mono good">${pct(x.k - 1)}</span></div>`).join('');
+    // Re-ranked once a week so the clickable rows don't reshuffle under the cursor.
+    if (!R.hot || S.day - R.hot.day >= 7 || R.hot.day > S.day) {
+      const all = [];
+      for (const x of GOOD_IDS) for (const r of Object.keys(REGIONS)) all.push({ g: x, r, k: G.sellPrice(x, r) / GOODS[x].price });
+      R.hot = { day: S.day, list: all.sort((a, b) => b.k - a.k).slice(0, 8) };
+    }
+    const hot = R.hot.list.map(x => ({ ...x, k: G.sellPrice(x.g, x.r) / GOODS[x.g].price }));
+    h += `<h3>Hottest markets <span class="r dim">updated weekly</span></h3>` + hot.map(x => `<div class="row click" data-act="mk-pick" data-g="${x.g}" style="padding:4px 0;cursor:pointer"><span class="ic">${GOODS[x.g].icon}</span><span class="grow">${esc(GOODS[x.g].name)} <span class="dim">· ${esc(REGIONS[x.r].name)}</span></span><span class="mono good">${pct(x.k - 1)}</span></div>`).join('');
     return h + '</div>';
   },
   rivals() {
@@ -633,7 +698,7 @@ const LEFT = {
       else {
         const best = CITIES.filter(c => c.bonus[g]).map(c => `${c.name} +${Math.round((c.bonus[g] - 1) * 100)}%`);
         const usedIn = GOOD_IDS.filter(x => GOODS[x].inputs?.[g]).map(x => GOODS[x].icon).join(' ');
-        h += recipeHTML(g) + `<div class="dim" style="font-size:11px;margin-top:4px">${esc(Gd.family)} · ${unl.has(g) ? '<span class="good">unlocked</span>' : `research ${esc(G.researchFor(g)?.name)}`} · ${num(G.plantRate(G.W.S.hq, g) * Gd.out)}/day at Lv1${EQUIPMENT[g] ? ` · plant needs ${Object.entries(EQUIPMENT[g]).map(([e, q]) => `${q}× ${GOODS[e].name}`).join(', ')}` : ''}${Gd.digital ? ' · digital' : ''}${COMMISSION[g] ? ` · can be commissioned as a ${esc(VEHICLES[COMMISSION[g]].name)}` : ''}</div>${best.length ? `<div class="good" style="font-size:11px">Best at: ${esc(best.join(' · '))}</div>` : ''}`;
+        h += recipeHTML(g) + `<div class="dim" style="font-size:11px;margin-top:4px">${esc(Gd.family)} · ${unl.has(g) ? '<span class="good">unlocked</span>' : `research ${esc(G.researchFor(g)?.name)}`} · ${num(cyclesPerDay(g) * Gd.out)}/day at Lv1 before city bonuses${EQUIPMENT[g] ? ` · plant needs ${Object.entries(EQUIPMENT[g]).map(([e, q]) => `${q}× ${GOODS[e].name}`).join(', ')}` : ''}${Gd.digital ? ' · digital' : ''}${COMMISSION[g] ? ` · can be commissioned as a ${esc(VEHICLES[COMMISSION[g]].name)}` : ''}</div>${best.length ? `<div class="good" style="font-size:11px">Best at: ${esc(best.join(' · '))}</div>` : ''}`;
         if (usedIn) h += `<div class="dim" style="font-size:11px">Used in: ${usedIn}</div>`;
       }
       if (Gd.raw) { const usedIn = GOOD_IDS.filter(x => GOODS[x].inputs?.[g]).map(x => GOODS[x].icon).join(' '); if (usedIn) h += `<div class="dim" style="font-size:11px">Used in: ${usedIn}</div>`; }
@@ -651,7 +716,7 @@ const LEFT = {
 };
 
 function spark() {
-  const H = W.S.hist; if (H.length < 2) return '<div class="muted">Building history…</div>';
+  const H = W.S.hist; if (H.length < 2) return '<div class="muted spark" style="display:grid;place-items:center">Building history…</div>';
   const w = 320, h = 70, all = H.flatMap(p => [p.w, ...p.r]), max = Math.max(...all, 1), min = Math.min(0, ...all);
   const X = i => i / (H.length - 1) * w, Y = v => h - 4 - (v - min) / (max - min) * (h - 8);
   const line = (vals, color, wdt, op) => `<polyline fill="none" stroke="${color}" stroke-width="${wdt}" stroke-opacity="${op}" stroke-linejoin="round" points="${vals.map((v, i) => `${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join(' ')}"/>`;
@@ -671,19 +736,26 @@ function cityPanel(c) {
     h += `<h3>Resources</h3>`;
     deps.forEach((d, di) => {
       const Gd = GOODS[d.g];
-      h += `<div class="card"><div class="row"><span class="ic">${Gd.icon}</span><b class="grow">${esc(Gd.name)}</b><span class="mono dim" title="Local sell price">${money(G.sellPrice(d.g, c.region))}</span></div>
-        <div class="dim" style="font-size:12px;margin:2px 0 4px">${d.rich}/day per extractor at Lv1 · ${d.slots.length} slot${d.slots.length > 1 ? 's' : ''}${Gd.agri ? ' · farm: keep 🧪 fertiliser on site for +35% (after Agribusiness)' : ''}</div>`;
-      d.slots.forEach((s, si) => {
-        if (s.o === 'P') {
-          const up = G.upgradeCost(G.extractorCost(c.id), s.lvl);
-          h += `<div class="slotrow"><span class="pip" style="--c:${S.color}"></span><span class="grow"><b>Yours</b> · Lv${s.lvl} · ${num(d.rich * G.lvlMult(s.lvl) * (s.fert ? 1.35 : 1))}/day ${s.fert ? '<span class="good">· 🧪 fertilised</span>' : ''}${s.st === 'full' ? '<span class="warn">· storage full</span>' : ''}</span>${s.lvl < 5 ? `<button class="btn sm" data-act="up-ext" data-c="${c.id}" data-d="${di}" data-s="${si}" ${S.cash < up ? 'disabled' : ''}>Lv${s.lvl + 1} ${money(up)}</button>` : '<span class="chip">Max</span>'}<button class="btn sm ghost" data-act="sell-ext" data-c="${c.id}" data-d="${di}" data-s="${si}" title="Sell for 45% of what you invested">✕</button></div>`;
-        } else if (s.o) {
+      h += `<div class="card" data-key="dep-${di}"><div class="row"><span class="ic">${Gd.icon}</span><b class="grow">${esc(Gd.name)}</b><span class="mono dim" title="Local sell price">${money(G.sellPrice(d.g, c.region))}</span></div>
+        <div class="dim" style="font-size:12px;margin:2px 0 4px">${d.rich}/day per extractor at Lv1 · ${d.slots.length} slot${d.slots.length > 1 ? 's' : ''}${Gd.agri ? ' · farm: spare 🧪 fertiliser on site adds 35% when the crop is worth it (after Agribusiness)' : ''}</div>`;
+      d.slots.forEach((sl, si) => {
+        let who, btn;
+        if (sl.o === 'P') {
+          const up = G.upgradeCost(G.extractorCost(c.id), sl.lvl), made = sl.last ?? d.rich * G.lvlMult(sl.lvl);
+          // Always two fixed lines, so changing numbers never re-wrap the row and shift the buttons below.
+          who = `<div class="one"><b>Yours</b> · Lv${sl.lvl} · ${num(made)}/day${sl.fert ? ' 🧪' : ''}</div><div class="one" style="font-size:11px">${sl.st === 'full' ? '<span class="warn">Stopped — warehouse 80% full</span>' : `<span class="${plClass(sl.pl)}">${perDay(sl.pl)}</span>`}</div>`;
+          btn = (sl.lvl < 5 ? `<button class="btn sm" data-act="up-ext" data-c="${c.id}" data-d="${di}" data-s="${si}" ${S.cash < up ? 'disabled' : ''}>Lv${sl.lvl + 1} ${money(up)}</button>` : '<span class="chip">Max</span>') + `<button class="btn sm ghost" data-act="sell-ext" data-c="${c.id}" data-d="${di}" data-s="${si}" title="Sell for 45% of what you invested">✕</button>`;
+        } else if (sl.o) {
           const cost = G.buyoutCost(c.id, di, si) + (site ? 0 : G.officeCost(c.id));
-          h += `<div class="slotrow"><span class="pip" style="--c:${rivalColor(s.o)}"></span><span class="grow">${esc(G.rivalInfo(s.o).name)} · Lv${s.lvl}</span><button class="btn sm" data-act="buyout" data-c="${c.id}" data-d="${di}" data-s="${si}" ${S.cash < cost ? 'disabled' : ''}>Buy out ${money(cost)}</button></div>`;
+          who = `<div class="one">${esc(G.rivalInfo(sl.o).name)} · Lv${sl.lvl}</div>`;
+          btn = `<button class="btn sm" data-act="buyout" data-c="${c.id}" data-d="${di}" data-s="${si}" ${S.cash < cost ? 'disabled' : ''}>Buy out ${money(cost)}</button>`;
         } else {
           const cost = G.extractorCost(c.id) + (site ? 0 : G.officeCost(c.id));
-          h += `<div class="slotrow"><span class="pip free"></span><span class="grow muted">Unclaimed</span><button class="btn sm p" data-act="build-ext" data-c="${c.id}" data-d="${di}" ${S.cash < cost ? 'disabled' : ''}>Build ${money(cost)}</button></div>`;
+          who = '<span class="muted">Unclaimed</span>';
+          btn = `<button class="btn sm p" data-act="build-ext" data-c="${c.id}" data-d="${di}" ${S.cash < cost ? 'disabled' : ''}>Build ${money(cost)}</button>`;
         }
+        // The owner is part of the key, so a slot a rival just claimed is a new row rather than a button that changes under you.
+        h += `<div class="slotrow" data-key="slot-${di}-${si}-${sl.o || 'free'}"><span class="pip ${sl.o ? '' : 'free'}" style="--c:${sl.o ? rivalColor(sl.o) : ''}"></span><span class="grow">${who}</span>${btn}</div>`;
       });
       h += `</div>`;
     });
@@ -691,33 +763,38 @@ function cityPanel(c) {
   }
   if (site) {
     const used = G.storeUsed(site), cap = G.storeCap(site);
-    h += `<h3>Warehouse <span class="r mono">${num(used)} / ${num(cap)}</span></h3><div class="bar ${used / cap > 0.9 ? 'w' : 'g'}"><i style="width:${Math.min(100, used / cap * 100)}%"></i></div>
+    h += `<h3>Warehouse <span class="r mono">${num(used)} / ${num(cap)}</span></h3><div class="bar ${used / cap > 0.78 ? 'w' : 'g'}"><i style="width:${Math.min(100, used / cap * 100)}%"></i></div>
       <div class="row" style="margin-top:6px"><span class="dim grow" style="font-size:12px">Level ${site.wh}. Extractors stop at 80% so deliveries can land.</span><button class="btn sm" data-act="up-wh" data-c="${c.id}">+${num(STORE_CAP * (G.research('warehousing') ? 2 : 1))} · ${money(G.warehouseCost(c.id, site.wh))}</button></div>`;
     h += `<h3>Plants <span class="r dim">${site.fac.length}/${G.MAX_PLANTS}</span></h3>`;
     for (const f of site.fac) {
       const Gd = GOODS[f.g], rate = G.plantRate(c.id, f.g, f.lvl) * Gd.out, up = G.upgradeCost(G.plantCostAt(f.g, c.id), f.lvl);
       const st = f.miss === '__full' ? '<span class="warn">Blocked — warehouse full</span>' : f.miss ? `<span class="warn">Short of ${GOODS[f.miss].icon} ${esc(GOODS[f.miss].name)}</span>` : f.util > 0.85 ? '<span class="good">Running</span>' : f.util > 0.05 ? '<span class="muted">Partly running</span>' : '<span class="muted">Starting up</span>';
-      h += `<div class="card"><div class="row"><span class="ic">${Gd.icon}</span><div class="grow"><b>${esc(Gd.family)}</b> <span class="dim">Lv${f.lvl}</span><div class="muted" style="font-size:12px">${esc(Gd.name)} · up to ${num(rate)}/day · ${st}</div></div>
+      h += `<div class="card" data-key="fac-${f.id}"><div class="row"><span class="ic">${Gd.icon}</span><div class="grow"><b>${esc(Gd.family)}</b> <span class="dim">Lv${f.lvl}</span></div>
         ${f.lvl < 5 ? `<button class="btn sm" data-act="up-plant" data-c="${c.id}" data-id="${f.id}" ${S.cash < up ? 'disabled' : ''}>Lv${f.lvl + 1} ${money(up)}</button>` : '<span class="chip">Max</span>'}<button class="btn sm ghost" data-act="demolish" data-c="${c.id}" data-id="${f.id}" title="Demolish (recover 35%)">✕</button></div>
+        <div class="muted one" style="font-size:12px">${esc(Gd.name)} · up to ${num(rate)}/day · ${st}</div>
+        <div class="one" style="font-size:12px" title="Output at local prices minus what the inputs would sell for here, minus upkeep (≈ 30-day average)">Value added <span class="mono ${plClass(f.pl)}">${perDay(f.pl)}</span></div>
         ${recipeHTML(f.g)}<div class="bar g" style="margin-top:6px"><i style="width:${f.util * 100}%"></i></div></div>`;
     }
     h += `<button class="btn block" data-act="plant-menu" data-c="${c.id}" ${site.fac.length >= G.MAX_PLANTS ? 'disabled' : ''}>+ Build a plant</button>`;
-    const goods = new Set([...Object.keys(site.inv).filter(g => site.inv[g] >= 0.5), ...Object.keys(site.sell).filter(g => site.sell[g])]);
+    // Rows stay in the order goods first arrived and remain at zero stock: new goods append at the bottom,
+    // so the Sell / Auto / Keep controls already on screen never move.
+    const goods = [...new Set([...(site.seen || []), ...Object.keys(site.inv), ...Object.keys(site.sell).filter(g => site.sell[g])])];
     h += `<h3>Stock &amp; sales <span class="r"><button class="btn sm" data-act="buy-menu" data-c="${c.id}">Buy goods</button></span></h3>`;
-    if (!goods.size) h += `<p class="muted">Nothing in the warehouse yet.</p>`;
+    if (!goods.length) h += `<p class="muted">Nothing in the warehouse yet.</p>`;
     else {
       h += `<table><tr><th>Good</th><th class="n">Qty</th><th class="n">Price</th><th></th><th title="Sell automatically every day">Auto</th><th title="Never sell or ship below this">Keep</th></tr>`;
-      for (const g of [...goods].sort((a, b) => (site.inv[b] || 0) * GOODS[b].price - (site.inv[a] || 0) * GOODS[a].price)) {
-        const q = site.inv[g] || 0;
-        h += `<tr><td title="${esc(GOODS[g].name)}${GOODS[g].digital ? ' — digital: takes no space, can’t be shipped' : ''}">${GOODS[g].icon} <span style="font-size:12px">${esc(GOODS[g].name)}${GOODS[g].digital ? ' <span class="chip">digital</span>' : ''}</span></td><td class="n">${num(q)}</td><td class="n">${money(G.sellPrice(g, c.region))}</td>
-          <td>${COMMISSION[g] && q >= 1 ? `<button class="btn sm p" data-act="commission" data-c="${c.id}" data-g="${g}" title="Fit out as a ${esc(VEHICLES[COMMISSION[g]].name)} for ${money(G.commissionFee(g))}">Commission</button> ` : ''}<button class="btn sm" data-act="sell" data-c="${c.id}" data-g="${g}" ${q < 1 ? 'disabled' : ''} title="Sell everything above your keep level">Sell</button></td>
+      for (const g of goods) {
+        const q = site.inv[g] || 0, sellQ = Math.floor(q - (site.keep[g] || 0));
+        const quote = sellQ >= 1 ? `Sell ${num(sellQ)} for about ${money(G.quoteSell(g, c.region, sellQ))} (big sales push the price down)` : 'Nothing above your keep level to sell';
+        h += `<tr data-key="row-${g}"><td title="${esc(GOODS[g].name)}${GOODS[g].digital ? ' — digital: takes no space, can’t be shipped' : ''}">${GOODS[g].icon} <span style="font-size:12px">${esc(GOODS[g].name)}${GOODS[g].digital ? ' <span class="chip">digital</span>' : ''}</span></td><td class="n">${num(q)}</td><td class="n">${money(G.sellPrice(g, c.region))}</td>
+          <td class="acts">${COMMISSION[g] ? `<button class="btn sm p" data-act="commission" data-c="${c.id}" data-g="${g}" ${q >= 1 ? '' : 'disabled'} title="Fit out as a ${esc(VEHICLES[COMMISSION[g]].name)} for ${money(G.commissionFee(g))}">Commission</button>` : ''}<button class="btn sm" data-act="sell" data-c="${c.id}" data-g="${g}" ${sellQ >= 1 ? '' : 'disabled'} title="${quote}">Sell</button></td>
           <td><input type="checkbox" class="toggle" data-act="autosell" data-c="${c.id}" data-g="${g}" ${site.sell[g] ? 'checked' : ''} aria-label="Auto-sell ${esc(GOODS[g].name)}"></td>
           <td><input class="keep" type="number" min="0" step="50" data-act="keep" data-c="${c.id}" data-g="${g}" value="${site.keep[g] || 0}" aria-label="Keep ${esc(GOODS[g].name)}"></td></tr>`;
       }
-      h += `</table><p class="dim" style="font-size:11px">Auto-sell dumps stock above “keep” into the ${esc(REGIONS[c.region].name)} market each day. Big sales push the local price down.</p>`;
+      h += `</table><p class="dim" style="font-size:11px">Auto-sell sells stock above “keep” into the ${esc(REGIONS[c.region].name)} market each day, after setting aside a load for any ship or plane that collects it here. Big sales push the local price down.</p>`;
     }
     const calling = S.veh.filter(v => v.a === c.id || v.b === c.id);
-    if (calling.length) h += `<h3>Routes calling here</h3>` + calling.map(v => `<div class="row click" data-act="goto-veh" data-id="${v.id}" style="padding:4px 0;cursor:pointer"><span class="ic">${KIND_ICON[VEHICLES[v.t].kind]}</span><span class="grow">${esc(v.name)}</span><span class="dim">${esc(CITY[v.a === c.id ? v.b : v.a].name)}</span></div>`).join('');
+    if (calling.length) h += `<h3>Routes calling here</h3>` + calling.map(v => `<div class="row click" data-key="call-${v.id}" data-act="goto-veh" data-id="${v.id}" style="padding:4px 0;cursor:pointer"><span class="ic">${KIND_ICON[VEHICLES[v.t].kind]}</span><span class="grow">${esc(v.name)}</span><span class="dim">${esc(CITY[v.a === c.id ? v.b : v.a]?.name || '—')}</span></div>`).join('');
   } else {
     h += `<h3>Presence</h3><div class="card"><p class="muted" style="margin:0 0 8px">You have no office here. An office gives you a warehouse, lets you build plants, trade in the ${esc(REGIONS[c.region].name)} market and run ships or aircraft here.</p><button class="btn p" data-act="open-site" data-c="${c.id}" ${S.cash < G.officeCost(c.id) ? 'disabled' : ''}>Open office · ${money(G.officeCost(c.id))}</button></div>`;
   }
@@ -725,26 +802,45 @@ function cityPanel(c) {
   return h + '</div>';
 }
 
-// ---------- Right panel: vehicle ----------
-function vehiclePanel(v) {
-  const S = W.S, V = VEHICLES[v.t];
-  let h = head(`${KIND_ICON[V.kind]} ${esc(v.name)}`, `${esc(V.name)} · ${V.cap} units · ${V.speed} km/h`, 'close-right') + '<div class="pb">';
-  if (!v.b) return h + `<p class="muted">${v.comm ? `Freshly commissioned from your own ${esc(GOODS[v.comm].name)}. ` : ''}Idle at ${esc(CITY[v.a].name)} with no route.</p><div class="row"><button class="btn p" data-act="edit-route" data-id="${v.id}">Set route</button><button class="btn" data-act="sell-veh" data-id="${v.id}">Sell · ${money(G.resaleValue(v))}</button></div></div>`;
-  const from = v.at === 0 ? v.a : v.b, to = v.at === 0 ? v.b : v.a;
-  const r = G.routeFor(V.kind, from, to), est = G.tripEstimate(v.t, v.a, v.b);
-  if (v.st === 'move' && r) {
-    const left = (r.km - v.d) / (V.speed * 24);
-    h += `<div class="card"><div class="row"><span class="grow">${esc(CITY[from].name)} → <b>${esc(CITY[to].name)}</b></span><span class="mono dim">${left.toFixed(1)}d</span></div><div class="bar" style="margin-top:8px"><i style="width:${v.d / r.km * 100}%"></i></div><div class="dim mono" style="font-size:11px;margin-top:4px">${num(v.d)} / ${num(r.km)} km</div></div>`;
-  } else {
-    h += `<div class="card ${v.st === 'stuck' ? 'bad' : ''}">${v.st === 'stuck' ? '⛔ ' : '⚓ '}At ${esc(CITY[G.stopCity(v)].name)}${v.msg ? ` — ${esc(v.msg)}` : ''}</div>`;
+// ---------- Vehicles: fixed layouts so buttons never move as ships dock and depart ----------
+function vehicleStatus(v) {
+  const V = VEHICLES[v.t];
+  if (v.st === 'move') {
+    const [from, to] = G.legOf(v), r = G.routeFor(V.kind, from, to);
+    const left = r ? (r.km - v.d) / (V.speed * 24) : 0;
+    return { moving: true, text: `${CITY[from].name} → ${CITY[to].name} · ${left.toFixed(1)}d to go`, prog: r ? v.d / r.km : 0, km: r ? `${num(v.d)} / ${num(r.km)} km` : '', cls: 'dim' };
   }
-  const cargo = Object.entries(v.cargo);
-  h += `<h3>Cargo <span class="r mono">${num(G.cargoTotal(v))} / ${V.cap}</span></h3>${cargo.length ? `<div class="recipe">${cargo.map(([g, q]) => goodChip(g, `${num(q)} ${GOODS[g].name}`)).join('')}</div>` : '<p class="muted">Empty</p>'}`;
-  h += `<h3>Route</h3><div class="card"><div class="row"><b class="grow">${esc(CITY[v.a].name)}</b><span class="dim">loads</span></div><div class="recipe" style="margin:4px 0 10px">${v.la.length ? v.la.map(g => goodChip(g)).join('') : '<span>nothing</span>'}</div>
-    <div class="row"><b class="grow">${esc(CITY[v.b].name)}</b><span class="dim">loads</span></div><div class="recipe" style="margin-top:4px">${v.lb.length ? v.lb.map(g => goodChip(g)).join('') : '<span>nothing</span>'}</div>
-    ${est ? `<div class="dim" style="font-size:12px;margin-top:10px">${num(est.km)} km each way · ${est.days.toFixed(1)} days · fuel ${money(est.fuel)} per leg · ${v.full ? 'waits for a full load (max 12 days)' : 'leaves with whatever is ready'}</div>` : '<div class="bad" style="margin-top:8px">No route available right now.</div>'}</div>`;
-  h += `<div class="row" style="margin-top:10px"><button class="btn p" data-act="edit-route" data-id="${v.id}">Edit route</button><button class="btn" data-act="sell-veh" data-id="${v.id}">Sell · ${money(G.resaleValue(v))}</button><span class="grow"></span><span class="dim">${v.trips} legs run</span></div>`;
-  h += `<p class="dim" style="font-size:12px">Running cost ${money(V.upkeep)}/day plus ${money(V.fuel)}/km in fuel.</p>`;
+  if (v.st === 'stuck') return { moving: false, text: `⛔ ${v.msg}`, prog: 0, km: '', cls: 'bad' };
+  if (!v.b) return { moving: false, text: `Idle at ${CITY[v.a].name} — needs a route`, prog: 0, km: '', cls: 'warn' };
+  return { moving: false, text: `⚓ At ${CITY[G.stopCity(v)].name}${v.msg ? ` — ${v.msg}` : ''}`, prog: 0, km: '', cls: v.msg && v.wait > 6 ? 'warn' : 'dim' };
+}
+const cargoLine = v => { const c = Object.entries(v.cargo); return c.length ? c.map(([g, q]) => goodChip(g, num(q))).join('') : '<span>empty</span>'; };
+function fleetCard(v) {
+  const V = VEHICLES[v.t], st = vehicleStatus(v);
+  return `<div class="card click vcard" data-key="veh-${v.id}" data-act="goto-veh" data-id="${v.id}"><div class="row"><span class="ic">${KIND_ICON[V.kind]}</span><b class="grow">${esc(v.name)} <span class="dim" style="font-weight:400">${esc(V.name)}</span></b><span class="mono dim">${num(G.cargoTotal(v))}/${V.cap}</span></div>
+    <div class="muted one">${v.b ? `${esc(CITY[v.a].name)} ⇄ ${esc(CITY[v.b].name)}` : '—'}</div>
+    <div class="${st.cls} one" style="font-size:12px">${esc(st.text)}</div>
+    <div class="bar" style="margin-top:6px;visibility:${st.moving ? 'visible' : 'hidden'}"><i style="width:${st.prog * 100}%"></i></div>
+    <div class="recipe one" style="margin-top:6px">${cargoLine(v)}</div>
+    <div class="dim one" style="font-size:11px;margin-top:4px">Costs ≈${money(v.costD || 0)}/day · delivers ≈${money(v.moveD || 0)}/day of goods</div></div>`;
+}
+function vehiclePanel(v) {
+  const V = VEHICLES[v.t], st = vehicleStatus(v), est = v.b ? G.tripEstimate(v.t, v.a, v.b) : null;
+  let h = head(`${KIND_ICON[V.kind]} ${esc(v.name)}`, `${esc(V.name)} · ${V.cap} units · ${V.speed} km/h`, 'close-right') + '<div class="pb">';
+  // Actions first: nothing above them changes height.
+  h += `<div class="row" style="margin-bottom:10px"><button class="btn p" data-act="edit-route" data-id="${v.id}">${v.b ? 'Edit route' : 'Set route'}</button><button class="btn" data-act="sell-veh" data-id="${v.id}">Sell · ${money(G.resaleValue(v))}</button><span class="grow"></span><span class="dim">${v.trips} legs</span></div>`;
+  if (v.pending) h += `<div class="card warn" style="font-size:12px">New route starts when this leg ends.</div>`;
+  h += `<div class="card"><div class="${st.cls} one">${esc(st.text)}</div><div class="bar" style="margin-top:8px;visibility:${st.moving ? 'visible' : 'hidden'}"><i style="width:${st.prog * 100}%"></i></div><div class="dim mono one" style="font-size:11px;margin-top:4px">${st.km || '&nbsp;'}</div></div>`;
+  h += `<h3>Cargo <span class="r mono">${num(G.cargoTotal(v))} / ${V.cap}</span></h3><div class="recipe one">${cargoLine(v)}</div>`;
+  h += `<h3>Economics <span class="r dim">≈ 30-day average</span></h3><table>
+    <tr><td>Running costs</td><td class="n bad">${money(-(v.costD || 0))}/day</td></tr>
+    <tr><td>Goods delivered</td><td class="n">${money(v.moveD || 0)}/day</td></tr></table>
+    <p class="dim" style="font-size:12px">Upkeep ${money(V.upkeep)}/day plus $${V.fuel.toFixed(1)}/km in fuel.${est ? ` On this route a full load costs about ${money(est.perUnit)} per unit to deliver.` : ''}</p>`;
+  if (v.b) {
+    h += `<h3>Route</h3><div class="card"><div class="row"><b class="grow">${esc(CITY[v.a].name)}</b><span class="dim">loads</span></div><div class="recipe" style="margin:4px 0 10px">${v.la.length ? v.la.map(g => goodChip(g)).join('') : '<span>nothing</span>'}</div>
+      <div class="row"><b class="grow">${esc(CITY[v.b].name)}</b><span class="dim">loads</span></div><div class="recipe" style="margin-top:4px">${v.lb.length ? v.lb.map(g => goodChip(g)).join('') : '<span>nothing</span>'}</div>
+      ${est ? `<div class="dim" style="font-size:12px;margin-top:10px">${num(est.km)} km each way · ${est.days.toFixed(1)} days · fuel ${money(est.fuel)} per leg · ${v.full ? 'waits for a full load (max 12 days)' : 'leaves once it has cargo'}</div>` : '<div class="bad" style="margin-top:8px">No route available right now.</div>'}</div>`;
+  } else if (v.comm) h += `<p class="muted">Freshly commissioned from your own ${esc(GOODS[v.comm].name)}.</p>`;
   return h + '</div>';
 }
 
@@ -766,7 +862,7 @@ function startModal() {
       <label class="f">Colours</label><div class="swatches">${COLORS.map(c => `<button data-act="st-color" data-v="${c}" class="${c === st.color ? 'on' : ''}" style="background:${c}" aria-label="Colour ${c}"></button>`).join('')}</div>
       <label class="f">Headquarters</label><div class="opts">${hqs.map(c => `<button class="opt ${c.id === st.hq ? 'on' : ''}" data-act="st-hq" data-v="${c.id}"><b>${esc(c.name)}</b><small>${esc(c.note || (Object.keys(c.bonus).some(k => k !== 'research') ? Object.keys(c.bonus).filter(k => k !== 'research').map(k => GOODS[k].name).join(', ') + ' bonus' : c.deposits.map(d => GOODS[d[0]].name).join(', ')))}</small></button>`).join('')}</div>
       <label class="f">Difficulty</label><div class="opts">${Object.entries(G.DIFFICULTY).map(([k, d]) => `<button class="opt ${k === st.diff ? 'on' : ''}" data-act="st-diff" data-v="${k}"><b>${d.label}</b><small>${d.blurb}</small></button>`).join('')}</div>
-      <details><summary>How to play</summary>${howTo()}</details>
+      <details ${R.howOpen ? 'open' : ''} data-act="how"><summary>How to play</summary>${howTo()}</details>
       <div class="acts"><button class="btn p" data-act="begin">Found company →</button></div>`);
   };
   R.start = st; R.startRender = render;
@@ -788,18 +884,22 @@ function plantModal(cid) {
   const sec = R.plantSector;
   const list = GOOD_IDS.filter(g => !GOODS[g].raw && (sec === 'all' ? true : sec === 'bonus' ? c.bonus[g] : sec === 'ready' ? unl.has(g) : GOODS[g].sector === sec)).sort((a, b) => (unl.has(b) - unl.has(a)) || GOODS[a].tier - GOODS[b].tier);
   const secs = [['all', 'All'], ['ready', 'Unlocked'], ['bonus', `★ ${c.name} bonus`], ...Object.entries(SECTORS).filter(([k]) => GOOD_IDS.some(g => !GOODS[g].raw && GOODS[g].sector === k))];
-  let h = `<h1>Build a plant in ${esc(c.name)}</h1><p class="sub">Estimated profit uses today’s ${esc(REGIONS[c.region].name)} prices and assumes inputs are bought locally — your own extractors make it far better.</p>
+  const prem = Math.round((G.BUY_PREMIUM - 1) * 100);
+  let h = `<h1>Build a plant in ${esc(c.name)}</h1><p class="sub">Estimates per day at level 1, once the ${esc(REGIONS[c.region].name)} market has settled after your plant starts selling into it. <b>Own inputs</b>: value added if you supply the inputs yourself (counted at what they’d sell for here). <b>Bought inputs</b>: profit if you buy every input on the local market (+${prem}% premium).</p>
     <div class="tabs">${secs.map(([k, l]) => `<button data-act="plant-sec" data-c="${cid}" data-v="${k}" class="${k === sec ? 'on' : ''}">${esc(l)}</button>`).join('')}</div>`;
   if (!list.length) h += '<p class="muted">Nothing in this category.</p>';
   for (const g of list) {
     const Gd = GOODS[g], ok = unl.has(g), rate = G.plantRate(cid, g, 1), cost = G.plantCostAt(g, cid);
-    const inCost = Object.entries(Gd.inputs).reduce((a, [i, q]) => a + G.sellPrice(i, c.region) * q, 0) * rate;
-    const outVal = G.sellPrice(g, c.region) * Gd.out * rate, up = G.UPKEEP_T[Gd.tier] * c.wage;
-    const prof = outVal - inCost - up;
+    const up = G.UPKEEP_T[Gd.tier] * c.wage, outQ = Gd.out * rate;
+    const outVal = G.steadyPrice(g, c.region, Gd.digital ? 0 : outQ) * outQ;
+    const ins = Object.entries(Gd.inputs);
+    const own = outVal - ins.reduce((a, [i, q]) => a + G.sellPrice(i, c.region) * q * rate, 0) - up;
+    const bought = outVal - ins.reduce((a, [i, q]) => a + G.steadyBuyPrice(i, c.region, q * rate) * q * rate, 0) - up;
     const eq = EQUIPMENT[g], eqOk = !eq || Object.entries(eq).every(([e, q]) => (site.inv[e] || 0) >= q);
+    const fmt = v => `<span class="${v >= 0 ? 'good' : 'bad'}">${v >= 0 ? '+' : ''}${money(v)}</span>`;
     h += `<div class="plant ${ok ? '' : 'locked'}"><span class="ic">${Gd.icon}</span><div><b>${esc(Gd.family)}</b> → ${esc(Gd.name)} <span class="dim">T${Gd.tier}</span>${c.bonus[g] ? ` <span class="chip b">+${Math.round((c.bonus[g] - 1) * 100)}% here</span>` : ''}</div>
       <button class="btn sm ${ok && eqOk ? 'p' : ''}" data-act="build-plant" data-c="${cid}" data-g="${g}" ${ok && eqOk && S.cash >= cost ? '' : 'disabled'}>${ok ? money(cost) : '🔒'}</button>
-      <div style="grid-column:2/4">${recipeHTML(g)}<div class="dim" style="font-size:11px;margin-top:3px">${num(rate * Gd.out)}/day · est. ${prof >= 0 ? '<span class="good">' : '<span class="bad">'}${money(prof)}/day</span>${ok ? '' : ` · needs ${esc(G.researchFor(g).name)}`}${eq ? ` · <span class="${eqOk ? 'good' : 'warn'}">requires ${Object.entries(eq).map(([e, q]) => `${q}× ${GOODS[e].name} on site`).join(', ')}</span>` : ''}</div></div></div>`;
+      <div style="grid-column:2/4">${recipeHTML(g)}<div class="dim" style="font-size:11px;margin-top:3px">${num(outQ)}/day · own inputs ${fmt(own)} · bought inputs ${fmt(bought)} · upkeep ${money(up)}${ok ? '' : ` · needs ${esc(G.researchFor(g).name)}`}${eq ? ` · <span class="${eqOk ? 'good' : 'warn'}">requires ${Object.entries(eq).map(([e, q]) => `${q}× ${GOODS[e].name} on site`).join(', ')}</span>` : ''}</div></div></div>`;
   }
   openModal({ type: 'plant' }, h + `<div class="acts"><button class="btn" data-act="close-modal">Close</button></div>`);
   $('#mc').scrollTop = R.plantScroll || 0; R.plantScroll = 0;
@@ -807,19 +907,25 @@ function plantModal(cid) {
 
 function buyModal(cid) {
   const c = CITY[cid];
-  const h = `<h1>Buy goods in ${esc(c.name)}</h1><p class="sub">Market purchases in ${esc(REGIONS[c.region].name)} carry a 25% premium and push the local price up.</p>
+  const h = `<h1>Buy goods in ${esc(c.name)}</h1><p class="sub">Market purchases in ${esc(REGIONS[c.region].name)} carry a ${Math.round((G.BUY_PREMIUM - 1) * 100)}% premium and push the local price up.</p>
     <label class="f">Good</label><select id="bg">${GOOD_IDS.map(g => `<option value="${g}">${GOODS[g].icon} ${GOODS[g].name}</option>`).join('')}</select>
     <label class="f">Quantity</label><input type="number" id="bq" min="1" value="100">
     <p id="bquote" class="muted"></p>
     <div class="acts"><button class="btn" data-act="close-modal">Cancel</button><button class="btn p" data-act="do-buy" data-c="${cid}">Buy</button></div>`;
   openModal({ type: 'buy', cid }, h);
-  const upd = () => { const g = $('#bg').value, q = Math.max(1, +$('#bq').value || 1); $('#bquote').innerHTML = `${num(q)} × ${GOODS[g].name} ≈ <b>${money(G.quoteBuy(g, c.region, q))}</b> · you have ${money(W.S.cash)}`; };
+  const upd = () => {
+    const g = $('#bg').value, want = Math.max(1, Math.floor(+$('#bq').value || 1)), room = G.buyRoom(cid, g), q = Math.min(want, room);
+    $('#bquote').innerHTML = q < 1 ? '<span class="bad">The warehouse here is full.</span>'
+      : `${num(q)} × ${GOODS[g].name} ≈ <b>${money(G.quoteBuy(g, c.region, q))}</b>${q < want ? ` <span class="warn">(only room for ${num(room)})</span>` : ''} · you have ${money(W.S.cash)}`;
+  };
   $('#bg').addEventListener('change', upd); $('#bq').addEventListener('input', upd); upd();
 }
 
 function routeModal(v) {
   const S = W.S, sites = Object.keys(S.sites);
-  const st = R.route = v ? { id: v.id, t: v.t, a: v.a || sites[0], b: v.b || sites[1], la: [...v.la], lb: [...v.lb], full: v.full } : { id: null, t: null, a: sites[0], b: sites[1], la: [], lb: [], full: true };
+  const st = R.route = v ? { id: v.id, t: v.t, a: v.a || sites[0], b: v.b || sites.find(x => x !== v.a), la: [...v.la], lb: [...v.lb], full: v.full } : { id: null, t: null, a: sites[0], b: sites[1], la: [], lb: [], full: true };
+  // Goods order is fixed per site when first shown, so ticking boxes or switching vehicle never reshuffles the list.
+  const order = {};
   const render = () => {
     let h = `<h1>${st.id ? 'Edit route' : 'Buy a vehicle'}</h1>`;
     if (!st.id) {
@@ -828,7 +934,7 @@ function routeModal(v) {
     const opt = sel => sites.map(cid => `<option value="${cid}" ${cid === sel ? 'selected' : ''}>${esc(CITY[cid].name)}${G.hasPort(cid) ? '' : ' (air only)'}</option>`).join('');
     const pickList = (cid, list, side) => {
       const site = S.sites[cid];
-      const goods = GOOD_IDS.filter(g => !GOODS[g].digital).sort((x, y) => ((site.inv[y] || 0) > 0) - ((site.inv[x] || 0) > 0) || (list.includes(y) - list.includes(x)) || GOODS[x].tier - GOODS[y].tier);
+      const goods = order[cid] ||= GOOD_IDS.filter(g => !GOODS[g].digital).sort((x, y) => ((site.inv[y] || 0) > 0) - ((site.inv[x] || 0) > 0) || (list.includes(y) - list.includes(x)) || GOODS[x].tier - GOODS[y].tier);
       return `<div class="pick">${goods.map(g => `<label><input type="checkbox" data-act="rt-g" data-side="${side}" data-g="${g}" ${list.includes(g) ? 'checked' : ''}>${GOODS[g].icon} ${esc(GOODS[g].name)}<span class="q">${site.inv[g] ? num(site.inv[g]) : ''}</span></label>`).join('')}</div>`;
     };
     h += `<label class="f">From</label><select data-act="rt-a">${opt(st.a)}</select><label class="f">Load at ${esc(CITY[st.a]?.name || '')}</label>${st.a ? pickList(st.a, st.la, 'la') : ''}
@@ -850,7 +956,8 @@ function routeModal(v) {
       else {
         const e = G.tripEstimate(st.t, st.a, st.b);
         if (!e) { msg = '<span class="bad">No sea route right now — a canal or strait may be closed.</span>'; ok = false; }
-        else msg = `${num(e.km)} km · ${e.days.toFixed(1)} days each way · ${money(e.fuel)} fuel per leg + ${money(V.upkeep)}/day. Carries ${V.cap} units.`;
+        else msg = `${num(e.km)} km · ${e.days.toFixed(1)} days each way · ${money(e.fuel)} fuel per leg + ${money(V.upkeep)}/day. Carries ${V.cap} units — about <b>${money(e.perUnit)} per unit</b> delivered on a full load, so ship goods whose price gap beats that.`;
+        if (!st.la.length && !st.lb.length) { msg += ' <span class="warn">Tick at least one good to load.</span>'; ok = false; }
         if (!st.id && S.cash < G.vehicleCost(st.t)) { msg += ` <span class="bad">Not enough cash.</span>`; ok = false; }
       }
     }
@@ -891,7 +998,8 @@ const ACT = {
   'build-ext': d => { G.buildExtractor(d.c, +d.d); after(); },
   'up-ext': d => { G.upgradeExtractor(d.c, +d.d, +d.s); after(); },
   'sell-ext': d => { if (confirm('Sell this extractor for 45% of what you put in?')) { G.sellExtractor(d.c, +d.d, +d.s); after(); } },
-  buyout: d => { G.buyout(d.c, +d.d, +d.s); after(); },
+  buyout: d => { const cost = G.buyoutCost(d.c, +d.d, +d.s); if (confirm(`Buy out this operation for ${money(cost)}? That's well above the cost of building one.`)) { G.buyout(d.c, +d.d, +d.s); after(); } },
+  offer: d => { const ok = W.S.offers.some(o => o.id === d.id); if (!ok) toast('That offer has expired.', 'warn'); else G.answerOffer(d.id, d.v === '1'); after(); },
   'open-site': d => { if (G.openSite(d.c)) toast(`🏢 Office opened in ${CITY[d.c].name}`, 'good'); after(); },
   'up-wh': d => { G.upgradeWarehouse(d.c); after(); },
   'up-plant': d => { G.upgradePlant(d.c, +d.id); after(); },
@@ -901,7 +1009,7 @@ const ACT = {
   commission: d => { const v = G.commission(d.c, d.g); if (v) select({ type: 'veh', id: v.id }); after(); },
   'build-plant': d => { if (G.buildPlant(d.c, d.g)) closeModal(); after(); },
   'buy-menu': d => buyModal(d.c),
-  'do-buy': d => { if (G.buy(d.c, $('#bg').value, Math.max(1, Math.floor(+$('#bq').value || 0)))) { toast(`Bought ${num(+$('#bq').value)} ${GOODS[$('#bg').value].name}`, 'good'); closeModal(); } after(); },
+  'do-buy': d => { const g = $('#bg').value, q = G.buy(d.c, g, Math.max(1, Math.floor(+$('#bq').value || 0))); if (q) { toast(`Bought ${num(q)} ${GOODS[g].name}`, 'good'); closeModal(); } after(); },
   sell: d => { const site = W.S.sites[d.c]; const v = G.sell(d.c, d.g, Math.floor((site.inv[d.g] || 0) - (site.keep[d.g] || 0))); if (v) toast(`Sold ${GOODS[d.g].name} for ${money(v)}`, 'good'); after(); },
   'buy-veh': () => routeModal(null),
   'edit-route': d => routeModal(W.S.veh.find(v => v.id === +d.id)),
@@ -909,12 +1017,17 @@ const ACT = {
   'rt-type': d => { R.route.t = d.v; R.routeRender(); },
   'rt-save': () => {
     const st = R.route;
-    if (st.id) { G.setRoute(W.S.veh.find(v => v.id === st.id), st.a, st.b, st.la, st.lb, st.full); closeModal(); }
+    if (st.id) {
+      const v = W.S.veh.find(v => v.id === st.id), res = G.setRoute(v, st.a, st.b, st.la, st.lb, st.full);
+      closeModal();
+      if (res === 'pending') toast(`${v.name} will switch to the new route when it reaches ${CITY[G.legOf(v)[1]].name}.`, '');
+      else if (res === 'reposition') toast(`${v.name} is sailing from ${CITY[G.stopCity(v)].name} to ${CITY[st.a].name} to start the new route.`, '');
+    }
     else { const v = G.buyVehicle(st.t, st.a, st.b, st.la, st.lb, st.full); if (v) { closeModal(); toast(`${KIND_ICON[VEHICLES[v.t].kind]} ${v.name} dispatched: ${CITY[v.a].name} ⇄ ${CITY[v.b].name}`, 'good'); select({ type: 'veh', id: v.id }); } }
     after();
   },
   'close-modal': () => closeModal(),
-  save: () => { toast(G.save() ? '💾 Game saved' : 'Could not save — storage is blocked in this browser', G.save() ? 'good' : 'bad'); closeModal(); },
+  save: () => { const ok = G.save(); toast(ok ? '💾 Game saved' : 'Could not save — storage is blocked in this browser', ok ? 'good' : 'bad'); closeModal(); },
   new: () => { closeModal(); startModal(); },
   help: () => openModal({ type: 'help' }, `<h1>How to play</h1>${howTo()}<div class="acts"><button class="btn p" data-act="close-modal">Got it</button></div>`),
   continue: () => { if (G.load()) { closeModal(); boot(); } else toast('Save file could not be read', 'bad'); },
@@ -930,7 +1043,7 @@ const ACT = {
 };
 const CHANGE = {
   autosell: (d, el) => { W.S.sites[d.c].sell[d.g] = el.checked; },
-  keep: (d, el) => { W.S.sites[d.c].keep[d.g] = Math.max(0, +el.value || 0); },
+  keep: (d, el) => { const v = Math.max(0, Math.floor(+el.value || 0)); W.S.sites[d.c].keep[d.g] = v; el.value = String(v); },
   'mk-good': (d, el) => { R.mkGood = el.value; },
   'rt-a': (d, el) => { R.route.a = el.value; R.route.la = []; R.routeRender(); },
   'rt-b': (d, el) => { R.route.b = el.value; R.route.lb = []; R.routeRender(); },
@@ -947,20 +1060,31 @@ document.addEventListener('change', e => {
   const t = e.target.closest('[data-act]');
   if (!t) return;
   CHANGE[t.dataset.act]?.(t.dataset, t, e);
-  if (!R.modal) after();
+  if (R.modal) return;
+  // A change fired by clicking elsewhere (e.g. leaving the Keep box to press Sell) must not redraw mid-click.
+  if (held.size) R.renderOnUp = true; else after();
 });
+document.addEventListener('click', e => { const d = e.target.closest('details[data-act=how] > summary'); if (d) R.howOpen = !d.parentElement.open; });
 $('#menuBtn').addEventListener('click', () => { if (W.S && !R.modal) menuModal(); });
 
 // ---------- Toasts ----------
+// Toasts never block clicks (only their own buttons take the pointer) and expire on their own.
 function toast(msg, kind = '', opts = {}) {
   const box = $('#toasts');
   const el = document.createElement('div');
   el.className = `toast ${kind}`;
   el.innerHTML = `<span class="grow">${esc(msg)}</span>${opts.actions || ''}`;
   box.prepend(el);
-  while (box.children.length > 5) box.lastChild.remove();
-  if (!opts.sticky) setTimeout(() => el.remove(), kind === 'event' ? 9000 : 5200);
+  while (box.children.length > 4) box.lastChild.remove();
+  setTimeout(() => el.remove(), kind === 'event' ? 9000 : 5200);
   return el;
+}
+// Rival offers live in their own fixed box, driven by game state: they don't move when toasts arrive,
+// can't be pushed out, and disappear exactly when the offer expires.
+function renderOffers() {
+  const S = W.S, box = $('#offers');
+  const html = S && !R.modal ? S.offers.map(offerCard).join('') : '';
+  if (box._html !== html) { box._html = html; tpl.innerHTML = html; patchChildren(box, tpl.content); }
 }
 
 // ---------- Hooks ----------
@@ -969,14 +1093,7 @@ W.hooks.news = () => { if (R.tab === 'news') renderPanels(); };
 W.hooks.goal = g => toast(`🎯 Goal complete: ${g.name}${g.reward ? ` · +${money(g.reward)}` : ''}`, 'goal');
 W.hooks.end = k => { setSpeed(0); endModal(k); };
 W.hooks.changed = what => { if (what === 'map') { computeTint(); R.dirty = true; } if (what === 'ghosts') rebuildGhosts(); };
-W.hooks.offer = o => {
-  const g = GOODS[W.S.deps[o.cid][o.di].g], rv = G.rivalInfo(o.rid);
-  const el = toast(`${rv.name} offers ${money(o.amount)} for your ${g.name} operation in ${CITY[o.cid].name}.`, 'warn', { sticky: true, actions: `<button class="btn sm p">Accept</button><button class="btn sm">Decline</button>` });
-  const [yes, no] = el.querySelectorAll('button');
-  yes.onclick = () => { G.answerOffer(o.id, true); el.remove(); after(); };
-  no.onclick = () => { G.answerOffer(o.id, false); el.remove(); };
-  setTimeout(() => el.remove(), 40000);
-};
+W.hooks.offer = () => renderOffers();
 
 // ---------- Boot & loop ----------
 function boot(fresh = false) {

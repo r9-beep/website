@@ -111,7 +111,11 @@ for (const [id, name, icon, inputs, out, family, sector] of MADE) {
 export const GOOD_IDS = Object.keys(GOODS);
 
 // Market depth: how many units a region absorbs per day before prices sag noticeably.
-export const depth = g => Math.max(1.5, 7000 / Math.pow(GOODS[g].price, 0.62)) * (GOODS[g].digital ? 4 : 1);
+// Manufactured goods get at least enough depth for 2.5 level-1 plants, so one plant doesn't flood its own region.
+export const depth = g => {
+  const G = GOODS[g], base = 7000 / Math.pow(G.price, 0.62);
+  return Math.max(1.5, G.tier ? Math.max(base, 2.5 * TIER_OUTPUT[G.tier] / G.price) : base) * (G.digital ? 4 : 1);
+};
 
 // Plant throughput: the $ value of output a level-1 plant makes per day, by tier.
 export const TIER_OUTPUT = [0, 14000, 40000, 120000, 300000, 600000, 1200000];
@@ -275,12 +279,12 @@ export const RESEARCH_BY = Object.fromEntries(RESEARCH.map(r => [r.id, r]));
 // ---------- Vehicles ----------
 // speed in km/h; cap in units; fuel in $/km.
 export const VEHICLES = {
-  feeder: { name: 'Coastal Feeder', kind: 'ship', cap: 500, speed: 28, cost: 1200000, upkeep: 1200, fuel: 2.2 },
-  bulker: { name: 'Panamax Bulker', kind: 'ship', cap: 2000, speed: 32, cost: 4200000, upkeep: 3500, fuel: 5.5 },
-  ulcv: { name: 'Ultra Large Carrier', kind: 'ship', cap: 7000, speed: 37, cost: 13000000, upkeep: 9000, fuel: 12 },
-  turboprop: { name: 'Turboprop Freighter', kind: 'plane', cap: 25, speed: 520, cost: 2200000, upkeep: 2500, fuel: 3 },
-  widebody: { name: 'Widebody Freighter', kind: 'plane', cap: 110, speed: 880, cost: 9000000, upkeep: 7500, fuel: 9 },
-  heavylift: { name: 'Heavy-Lift Jet', kind: 'plane', cap: 260, speed: 800, cost: 19000000, upkeep: 15000, fuel: 16 }
+  feeder: { name: 'Coastal Feeder', kind: 'ship', cap: 500, speed: 28, cost: 1200000, upkeep: 500, fuel: 0.4 },
+  bulker: { name: 'Panamax Bulker', kind: 'ship', cap: 2000, speed: 32, cost: 4200000, upkeep: 1200, fuel: 0.8 },
+  ulcv: { name: 'Ultra Large Carrier', kind: 'ship', cap: 7000, speed: 37, cost: 13000000, upkeep: 2500, fuel: 1.6 },
+  turboprop: { name: 'Turboprop Freighter', kind: 'plane', cap: 60, speed: 520, cost: 2200000, upkeep: 1500, fuel: 2 },
+  widebody: { name: 'Widebody Freighter', kind: 'plane', cap: 250, speed: 880, cost: 9000000, upkeep: 4000, fuel: 5 },
+  heavylift: { name: 'Heavy-Lift Jet', kind: 'plane', cap: 600, speed: 800, cost: 19000000, upkeep: 8000, fuel: 10 }
 };
 
 // ---------- Rivals ----------

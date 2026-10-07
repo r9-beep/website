@@ -95,6 +95,13 @@ th { font-size: 10px; text-transform: uppercase; letter-spacing: .07em; color: v
 td.n, th.n { text-align: right; font-family: var(--mono); }
 .slotrow { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-top: 1px dashed var(--line); font-size: 12px; }
 .slotrow:first-of-type { border-top: 0; }
+.slotrow .grow { flex: 1; min-width: 0; }
+.slotrow .btn { flex: none; }
+.one { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.recipe.one { flex-wrap: nowrap; }
+td.acts { white-space: nowrap; text-align: right; }
+td.acts .btn + .btn { margin-left: 4px; }
+.stat span { min-width: 7ch; }
 .pip { width: 10px; height: 10px; border-radius: 3px; flex: none; background: var(--c, transparent); border: 1.5px solid var(--c, var(--dim)); }
 .pip.free { background: none; }
 .toggle { appearance: none; width: 28px; height: 16px; border-radius: 99px; background: #ffffff1a; position: relative; cursor: pointer; vertical-align: middle; margin: 0; flex: none; }
@@ -118,9 +125,12 @@ input.keep { width: 58px; background: #0008; border: 1px solid var(--line-2); bo
 
 /* Toasts */
 #toasts { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column-reverse; gap: 6px; z-index: 40; pointer-events: none; width: min(560px, calc(100vw - 32px)); }
-.toast { pointer-events: auto; background: #0e1b2af5; border: 1px solid var(--line-2); border-left: 3px solid var(--muted); border-radius: 10px; padding: 9px 12px; font-size: 13px; box-shadow: 0 10px 30px #0009; animation: tin .25s ease-out; display: flex; gap: 10px; align-items: center; }
+.toast { pointer-events: none; background: #0e1b2af5; border: 1px solid var(--line-2); border-left: 3px solid var(--muted); border-radius: 10px; padding: 9px 12px; font-size: 13px; box-shadow: 0 10px 30px #0009; animation: tin .25s ease-out; display: flex; gap: 10px; align-items: center; }
 .toast.good { border-left-color: var(--good); } .toast.bad { border-left-color: var(--bad); } .toast.warn { border-left-color: var(--warn); } .toast.event { border-left-color: var(--event); } .toast.goal { border-left-color: #ffd34d; }
 .toast .grow { flex: 1; }
+.toast button { pointer-events: auto; }
+#offers { position: fixed; top: calc(var(--top) + 46px); left: 50%; transform: translateX(-50%); z-index: 13; width: min(420px, calc(100vw - 32px)); display: flex; flex-direction: column; gap: 6px; }
+#offers .card { margin: 0; background: #0e1b2af5; border-color: var(--warn); box-shadow: 0 10px 30px #0009; }
 @keyframes tin { from { opacity: 0; transform: translateY(8px); } }
 #tip { position: fixed; pointer-events: none; z-index: 30; background: #0b1724f2; border: 1px solid var(--line-2); border-radius: 8px; padding: 7px 10px; font-size: 12px; max-width: 260px; display: none; }
 #scale { position: fixed; bottom: 14px; right: 14px; z-index: 5; font: 11px var(--mono); color: var(--muted); text-align: right; pointer-events: none; }
@@ -163,7 +173,10 @@ kbd { font-family: var(--mono); font-size: 11px; background: #ffffff14; border: 
   #rail button { flex: 1; padding: 6px 0 4px; }
   #rail button.on { box-shadow: inset 0 3px 0 var(--accent); }
   .panel, #right { left: 8px !important; right: 8px; width: auto; top: auto; bottom: 66px; height: 58vh; }
-  #toasts { bottom: 74px; }
+  #toasts { top: calc(var(--top) + 8px); bottom: auto; flex-direction: column; }
+  .toast:nth-child(n+4) { display: none; }
+  #offers { top: calc(var(--top) + 8px); z-index: 41; }
+  #offers:not(:empty) ~ #toasts { top: calc(var(--top) + 140px); }
   #scale { bottom: 72px; }
   #fxbar { max-width: 90vw; }
 }
@@ -189,7 +202,7 @@ kbd { font-family: var(--mono); font-size: 11px; background: #ffffff14; border: 
     <div class="stat hide-xs"><label>Date</label><span id="hDate">—</span></div>
     <div class="stat"><label>Cash</label><span id="hCash">—</span></div>
     <div class="stat hide-sm"><label>Net worth</label><span id="hWorth">—</span></div>
-    <div class="stat hide-sm"><label>Profit 30d</label><span id="hProfit">—</span></div>
+    <div class="stat hide-sm" title="Trading profit after interest. Excludes research, building, asset sales and goal grants; includes the value of stock you've made but not yet sold."><label id="hProfitL">Profit 30d</label><span id="hProfit">—</span></div>
     <div class="stat hide-sm"><label>Rank</label><span id="hRank">—</span></div>
   </div>
   <div class="speed" id="speed" role="group" aria-label="Game speed"></div>
@@ -200,6 +213,7 @@ kbd { font-family: var(--mono); font-size: 11px; background: #ffffff14; border: 
 <aside id="left" class="panel" hidden></aside>
 <aside id="right" class="panel" hidden></aside>
 <div id="fxbar"></div>
+<div id="offers" aria-live="polite"></div>
 <div id="toasts" aria-live="polite"></div>
 <div id="tip"></div>
 <div id="scale"></div>

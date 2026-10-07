@@ -19,6 +19,8 @@ export const CHANNELS = {
   hormuz: [[26.9, 56.0], [26.5, 56.4], [26.2, 56.8], [25.8, 57.0]],
   oresund: [[55.3, 12.8], [55.7, 12.7], [56.1, 12.5], [56.8, 11.8]],
   messina: [[38.0, 15.4], [38.3, 15.65]],
+  // Round the North Cape into the Barents Sea (Murmansk) — above the grid's Arctic cut-off.
+  northcape: [[70.2, 21.0], [71.0, 23.0], [71.5, 25.8], [71.2, 28.5], [70.6, 31.0], [69.8, 33.2], [69.2, 33.4]],
   // Short dredged approaches so inland-ish ports (Houston ship channel, the Plate, the Rhine/Scheldt) connect.
   houston: [[29.7, -95.0], [29.35, -94.75], [29.0, -94.5]],
   plate: [[-34.6, -58.3], [-34.9, -57.5], [-35.2, -56.6]],
