@@ -100,6 +100,8 @@ td.n, th.n { text-align: right; font-family: var(--mono); }
 .one { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .recipe.one { flex-wrap: nowrap; }
 td.acts { white-space: nowrap; text-align: right; }
+table.stock { table-layout: fixed; }
+table.stock td:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 td.acts .btn + .btn { margin-left: 4px; }
 .stat span { min-width: 7ch; }
 .pip { width: 10px; height: 10px; border-radius: 3px; flex: none; background: var(--c, transparent); border: 1.5px solid var(--c, var(--dim)); }
@@ -129,7 +131,7 @@ input.keep { width: 58px; background: #0008; border: 1px solid var(--line-2); bo
 .toast.good { border-left-color: var(--good); } .toast.bad { border-left-color: var(--bad); } .toast.warn { border-left-color: var(--warn); } .toast.event { border-left-color: var(--event); } .toast.goal { border-left-color: #ffd34d; }
 .toast .grow { flex: 1; }
 .toast button { pointer-events: auto; }
-#offers { position: fixed; top: calc(var(--top) + 46px); left: 50%; transform: translateX(-50%); z-index: 13; width: min(420px, calc(100vw - 32px)); display: flex; flex-direction: column; gap: 6px; }
+#offers { position: fixed; top: calc(var(--top) + 46px); left: 50%; transform: translateX(-50%); z-index: 16; max-height: 45vh; overflow-y: auto; width: min(420px, calc(100vw - 32px)); display: flex; flex-direction: column; gap: 6px; }
 #offers .card { margin: 0; background: #0e1b2af5; border-color: var(--warn); box-shadow: 0 10px 30px #0009; }
 @keyframes tin { from { opacity: 0; transform: translateY(8px); } }
 #tip { position: fixed; pointer-events: none; z-index: 30; background: #0b1724f2; border: 1px solid var(--line-2); border-radius: 8px; padding: 7px 10px; font-size: 12px; max-width: 260px; display: none; }
@@ -176,7 +178,8 @@ kbd { font-family: var(--mono); font-size: 11px; background: #ffffff14; border: 
   #toasts { top: calc(var(--top) + 8px); bottom: auto; flex-direction: column; }
   .toast:nth-child(n+4) { display: none; }
   #offers { top: calc(var(--top) + 8px); z-index: 41; }
-  #offers:not(:empty) ~ #toasts { top: calc(var(--top) + 140px); }
+  #offers { max-height: 30vh; }
+  #offers:not(:empty) ~ #toasts { display: none; }
   #scale { bottom: 72px; }
   #fxbar { max-width: 90vw; }
 }

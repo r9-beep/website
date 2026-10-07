@@ -49,6 +49,7 @@ export function newGame({ name, color, hq, difficulty }) {
     for (let k = 0; k < 2; k++) rivalBuyDeposit(rv, true);
   }
   S.hist.push(histPoint());
+  S.lastInv = stockValue();
   return S;
 }
 
@@ -113,6 +114,10 @@ export function migrate(S) {
   // Net-worth history used to store rival values as an array in RIVALS order; now it's keyed by id.
   for (const h of S.hist) if (Array.isArray(h.r)) h.r = Object.fromEntries(h.r.map((v, k) => [RIVALS[k]?.id, v]).filter(([id]) => id));
   S.leadDays ??= 0;
+  for (const rv of S.rivals) { for (const l of rv.lines) l.cost ??= BUILD_COST[GOODS[l.g]?.tier ?? 1]; }
+  // Rival worth is rebuilt from what they actually own (older builds left retired lines in it).
+  for (const rv of S.rivals) { let inv = rv.lines.reduce((a, l) => a + l.cost, 0); for (const ds of Object.values(S.deps)) for (const d of ds) for (const sl of d.slots) if (sl.o === rv.id) inv += sl.inv || 0; rv.invested = inv; }
+  if (S.lastInv == null) { const prev = W.S; W.S = S; S.lastInv = stockValue(); W.S = prev; }
   if (!Number.isFinite(S.cash)) S.cash = 0;
   S.v = SAVE_VERSION;
   return S;
@@ -236,7 +241,7 @@ const add = (site, g, q) => {
 };
 const markSeen = (site, g) => { site.seen ||= []; if (!site.seen.includes(g)) site.seen.push(g); };
 // Book value of goods, used for net worth and the change-in-stock line of profit.
-export const BOOK_STOCK = 0.7, BOOK_BUILDINGS = 0.8, BOOK_VEHICLES = 0.7, BOOK_RESEARCH = 0.5;
+export const BOOK_STOCK = 0.8, BOOK_BUILDINGS = 0.8, BOOK_VEHICLES = 0.7, BOOK_RESEARCH = 0.5;
 const bookValue = (g, q) => GOODS[g].price * q * BOOK_STOCK;
 // Goods leaving stock into fixed assets (plant equipment, commissioned ships) are a transfer, not a loss.
 const transferToAssets = v => { if (W.S.lastInv != null) W.S.lastInv -= v; };
@@ -252,7 +257,10 @@ export function openSite(cid, free = false) {
 }
 function fail(msg) { W.hooks.toast(msg, 'bad'); return false; }
 
-export const extractorCost = cid => Math.round(BUILD_COST[0] * CITY[cid].land);
+// Land gets dearer as your mining empire grows (+4% per deposit you hold, up to 3x).
+const ownedSlots = () => { let n = 0; for (const ds of Object.values(W.S.deps)) for (const d of ds) for (const sl of d.slots) if (sl.o === 'P') n++; return n; };
+export const extractorCost = cid => Math.round(BUILD_COST[0] * CITY[cid].land * Math.min(3, 1 + 0.04 * ownedSlots()));
+const baseExtractorCost = cid => Math.round(BUILD_COST[0] * CITY[cid].land);
 export const upgradeCost = (base, lvl) => Math.round(base * 0.6 * lvl);
 export function buildExtractor(cid, di) {
   const S = W.S, dep = S.deps[cid][di], slot = dep.slots.find(s => !s.o);
@@ -280,7 +288,7 @@ export function upgradeExtractor(cid, di, si) {
 }
 export function buyoutCost(cid, di, si) {
   const slot = W.S.deps[cid][di].slots[si];
-  return Math.round(extractorCost(cid) * lvlMult(slot.lvl) * 2.6);
+  return Math.round(baseExtractorCost(cid) * lvlMult(slot.lvl) * 2.6);
 }
 export function buyout(cid, di, si) {
   const S = W.S, slot = S.deps[cid][di].slots[si], rv = S.rivals.find(r => r.id === slot.o);
@@ -339,7 +347,9 @@ export function demolishPlant(cid, id) {
   const site = W.S.sites[cid], k = site.fac.findIndex(x => x.id === id);
   if (k < 0) return;
   earn(Math.round(site.fac[k].inv * 0.35), 'disposal');
-  site.fac.splice(k, 1);
+  const gone = site.fac.splice(k, 1)[0];
+  for (const i of Object.keys(GOODS[gone.g].inputs))
+    if (!site.fac.some(f => GOODS[f.g].inputs[i]) && W.S.deps[cid].some(d => d.g === i && d.slots.some(sl => sl.o === 'P'))) site.sell[i] = true;
 }
 export const warehouseCost = (cid, wh) => Math.round(220000 * wh * CITY[cid].land);
 export function upgradeWarehouse(cid) {
@@ -355,8 +365,8 @@ export function plantRate(cid, g, lvl = 1) {
 }
 
 // Sell into a region's market (with price impact). Used by the Sell button, auto-sell and vehicle disposals.
-function sellRaw(region, g, q) {
-  const v = quoteSell(g, region, q);
+function sellRaw(region, g, q, factor = 1) {
+  const v = quoteSell(g, region, q) * factor;
   W.S.mkt[region][g] += q;
   earn(v, 'sales'); W.S.stats.sales += v;
   return v;
@@ -503,8 +513,9 @@ export function sellVehicle(v) {
   const S = W.S;
   earn(resaleValue(v), 'disposal');
   // Any cargo aboard is dumped on the market where the vehicle is (or the port it just left).
-  const c = CITY[v.st === 'move' ? legOf(v)[0] : stopCity(v)];
-  for (const [g, q] of Object.entries(v.cargo)) sellRaw(c.region, g, q * 0.8);
+  let at = stopCity(v);
+  if (v.st === 'move') { const [from, to] = legOf(v), r = routeFor(VEHICLES[v.t].kind, from, to); at = r && v.d > r.km / 2 ? to : from; }
+  for (const [g, q] of Object.entries(v.cargo)) sellRaw(CITY[at].region, g, q, 0.8);
   S.veh = S.veh.filter(x => x !== v);
 }
 export const cargoTotal = v => Object.values(v.cargo).reduce((a, b) => a + b, 0);
@@ -573,14 +584,20 @@ function updateVehicle(v, dt) {
   if (v.wait < 0.4) return;
   if (!v.unloaded) {
     unload(v);
-    v.unloaded = cargoTotal(v) < 1e-6;
-    if (!v.unloaded) { v.msg = 'Waiting for warehouse space to unload'; return; }
+    // Loading this stop's goods frees warehouse space, so try that before waiting (avoids a deadlock).
+    if (cargoTotal(v) >= 1e-6) { loadUp(v); unload(v); }
+    v.unloaded = Object.entries(v.cargo).every(([g]) => loadList(v).includes(g)) || cargoTotal(v) < 1e-6;
+    if (!v.unloaded) {
+      v.msg = 'Waiting for warehouse space to unload';
+      if (v.wait < 8) return;
+      v.unloaded = true; v.msg = ''; // give up and carry the rest round the loop
+    }
   }
   if (!v.la.length && !v.lb.length) { v.msg = 'Nothing to load at either stop — edit the route'; return; }
   loadUp(v);
   const load = cargoTotal(v), list = loadList(v);
   // Never run an empty leg from a stop that is meant to supply cargo — wait for goods instead.
-  const ready = !list.length || (load >= 1 && (!v.full || load >= V.cap - 0.5)) || v.wait >= 12;
+  const ready = !list.length || (load >= 1 && (!v.full || load >= V.cap - 0.5 || v.wait >= 12));
   if (!ready) { v.msg = load < 1 ? `Waiting for cargo (${list.map(g => GOODS[g].name).join(', ')})` : `Loading — ${Math.round(load)}/${V.cap}`; return; }
   depart(v, here, here === v.a ? v.b : v.a);
 }
@@ -662,7 +679,7 @@ function rivalBuyDeposit(rv, initial = false) {
   if (!cands.length) return false;
   let r = rnd() * cands.reduce((a, x) => a + x.w, 0), ch = cands[0];
   for (const x of cands) { r -= x.w; if (r <= 0) { ch = x; break; } }
-  const cost = extractorCost(ch.c.id);
+  const cost = baseExtractorCost(ch.c.id);
   if (!initial && rv.cash < cost) return false;
   rv.cash -= cost; rv.invested += cost;
   Object.assign(S.deps[ch.c.id][ch.di].slots[ch.si], { o: rv.id, lvl: 1, inv: cost });
@@ -704,19 +721,21 @@ function rivalsTick() {
         let lo = 0;
         rv.lines.forEach((l, k) => { if (l.rate * price(l.g, l.r) < rv.lines[lo].rate * price(rv.lines[lo].g, rv.lines[lo].r)) lo = k; });
         if (GOODS[rv.lines[lo].g].tier >= GOODS[g].tier) continue;
+        rv.invested -= rv.lines[lo].cost ?? BUILD_COST[GOODS[rv.lines[lo].g].tier];
         rv.lines.splice(lo, 1);
       }
       // Sell where the realised price is best today, so rivals spread out instead of piling into one market.
-      const r = REG.map(x => ({ x, p: price(g, x) * (0.85 + rnd() * 0.3) })).sort((a, b) => b.p - a.p)[0].x;
+      const rate = TIER_OUTPUT[GOODS[g].tier] / GOODS[g].price * (0.7 + rnd() * 0.9);
+      const r = REG.map(x => ({ x, p: price(g, x, S.mkt[x][g] + rate / 0.04) * (0.9 + rnd() * 0.2) })).sort((a, b) => b.p - a.p)[0].x;
       rv.cash -= cost; rv.invested += cost;
-      rv.lines.push({ g, r, rate: TIER_OUTPUT[GOODS[g].tier] / GOODS[g].price * (0.7 + rnd() * 0.9) });
+      rv.lines.push({ g, r, rate, cost });
       if (GOODS[g].tier >= 3) news(`${info.name} starts producing ${GOODS[g].name} — expect pressure on ${REGIONS[r].name} prices.`, rv.id);
       continue;
     }
     // Upgrade an existing operation.
     const own = rivalSlots(rv).filter(s => s.lvl < MAX_LEVEL);
     if (own.length) {
-      const s = pick(own), cost = upgradeCost(extractorCost(s.cid), s.lvl);
+      const s = pick(own), cost = upgradeCost(baseExtractorCost(s.cid), s.lvl);
       if (rv.cash > cost * 1.5) { const sl = S.deps[s.cid][s.di].slots[s.si]; rv.cash -= cost; rv.invested += cost; sl.lvl++; sl.inv = (sl.inv || 0) + cost; }
     }
   }
@@ -728,7 +747,9 @@ function rivalsTick() {
     if (mine.length && rv) {
       // Bids are based on replacement value, below what a buy-out costs, so selling and buying back never pays.
       const m = pick(mine);
-      const offer = Math.round(buyoutCost(m.cid, m.di, m.si) * (0.6 + rnd() * 0.35) / 1e4) * 1e4;
+      const sl = S.deps[m.cid][m.di].slots[m.si];
+      const offer = Math.round(baseExtractorCost(m.cid) * lvlMult(sl.lvl) * (1.1 + rnd() * 0.5) / 1e4) * 1e4;
+      m.lvl = sl.lvl; m.inv = sl.inv;
       if (rv.cash > offer) {
         const o = { id: Math.random().toString(36).slice(2, 8), rid: rv.id, ...m, amount: offer, until: S.day + 20 };
         S.offers.push(o);
@@ -742,7 +763,8 @@ export function answerOffer(id, accept) {
   if (k < 0) return;
   const o = S.offers[k]; S.offers.splice(k, 1);
   const slot = S.deps[o.cid][o.di].slots[o.si], rv = S.rivals.find(r => r.id === o.rid);
-  if (!accept || slot.o !== 'P' || !rv || rv.cash < o.amount) return;
+  // The offer was for the operation as it stood; a rebuilt or re-levelled slot voids it.
+  if (!accept || slot.o !== 'P' || !rv || rv.cash < o.amount || (o.lvl != null && (slot.lvl !== o.lvl || slot.inv !== o.inv))) return;
   rv.cash -= o.amount; rv.invested += o.amount;
   earn(o.amount, 'disposal');
   Object.assign(slot, { o: rv.id, inv: o.amount });
@@ -817,7 +839,7 @@ export const GOALS = [
   { id: 'cars', name: 'Gigafactory', desc: 'Produce 100 Electric Cars.', reward: 6e6, test: () => (W.S.made.cars || 0) >= 100 },
   { id: 'air', name: 'Wings', desc: 'Build an Airliner.', reward: 10e6, test: () => (W.S.made.airliners || 0) >= 1 },
   { id: 'mna', name: 'Corporate raider', desc: 'Take over a rival company.', reward: 5e6, test: () => (W.S.acquired || 0) >= 1 },
-  { id: 'top', name: 'Market leader', desc: 'Stay #1 on the leaderboard by net worth for 60 days.', reward: 10e6, test: () => W.S.day > 180 && (W.S.leadDays || 0) >= 60 },
+  { id: 'top', name: 'Market leader', desc: 'Stay #1 on the leaderboard by net worth for 60 days.', reward: 10e6, test: () => (W.S.leadDays || 0) >= 60 },
   { id: 'navy', name: 'Arsenal of democracy', desc: 'Build a Warship or Fighter Jet.', reward: 12e6, test: () => (W.S.made.warships || 0) + (W.S.made.fighter_jets || 0) >= 1 },
   { id: 'space', name: 'Liftoff', desc: 'Build a Launch Rocket.', reward: 15e6, test: () => (W.S.made.rockets || 0) >= 1 },
   { id: 'sw', name: 'Software is eating the world', desc: 'Produce 10,000 Software licences.', reward: 15e6, test: () => (W.S.made.software || 0) >= 10000 },
@@ -855,7 +877,7 @@ function produce(cid, site) {
       // Fertiliser is only spread when the extra crop is worth more than the fertiliser, and never below its keep level.
       const need = want * FERTILISER_USE, spare = (site.inv.fertiliser || 0) - (site.keep.fertiliser || 0);
       const pays = FERTILISER_BOOST * sellPrice(dep.g, c.region) > FERTILISER_USE * sellPrice('fertiliser', c.region);
-      if (research('agri') && pays && spare >= need) {
+      if (research('agri') && pays && spare >= need && freeX >= want * (1 + FERTILISER_BOOST)) {
         add(site, 'fertiliser', -need); free += need; freeX += need;
         fertCost = need * sellPrice('fertiliser', c.region);
         want *= 1 + FERTILISER_BOOST; sl.fert = true;
@@ -899,9 +921,11 @@ function reservedFor(cid, g) {
   let r = 0;
   for (const v of W.S.veh) {
     const l = v.a === cid ? v.la : v.b === cid ? v.lb : null;
-    if (l && l.includes(g)) r += VEHICLES[v.t].cap / l.length;
+    const coming = v.st === 'move' ? legOf(v)[1] === cid : stopCity(v) === cid;
+    if (l && l.includes(g) && coming) r += Math.max(0, VEHICLES[v.t].cap - cargoTotal(v)) / l.length;
   }
-  return r;
+  // Never hold back more than half the warehouse, or auto-sell would stall and stop the extractors.
+  return Math.min(r, storeCap(W.S.sites[cid]) * 0.5);
 }
 function dailyTick() {
   const S = W.S, d = S.day;
@@ -951,7 +975,7 @@ function dailyTick() {
   S.lastInv = inv;
   S.ledger.push(S.today); if (S.ledger.length > LEDGER_DAYS) S.ledger.shift(); S.today = {};
   if (d % 7 === 0) { S.hist.push(histPoint()); if (S.hist.length > 520) S.hist.shift(); }
-  S.leadDays = rank() === 1 ? (S.leadDays || 0) + 1 : 0;
+  S.leadDays = d > 180 && rank() === 1 ? (S.leadDays || 0) + 1 : 0;
   checkGoals();
   // Insolvency: 45 days overdrawn and the administrators arrive.
   if (S.cash < 0) {

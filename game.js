@@ -564,6 +564,7 @@ const siteDaily = cid => {
   return any ? p : null;
 };
 const offerCard = o => {
+  if (!W.S.rivals.some(r => r.id === o.rid)) return '';
   const g = GOODS[W.S.deps[o.cid][o.di].g], rv = G.rivalInfo(o.rid), left = Math.max(0, Math.ceil(o.until - W.S.day));
   return `<div class="card offer" data-key="offer-${o.id}"><div><span style="color:${rv.color}">●</span> <b>${esc(rv.name)}</b> offers <b class="mono">${money(o.amount)}</b> for your ${g.icon} ${esc(g.name)} operation in ${esc(CITY[o.cid].name)} <span class="dim">· ${left}d left</span></div>
     <div class="row" style="margin-top:8px"><button class="btn sm p" data-act="offer" data-id="${o.id}" data-v="1">Accept</button><button class="btn sm" data-act="offer" data-id="${o.id}" data-v="0">Decline</button></div></div>`;
@@ -659,13 +660,13 @@ const LEFT = {
     }
     // Hottest opportunities right now.
     // Re-ranked once a week so the clickable rows don't reshuffle under the cursor.
-    if (!R.hot || S.day - R.hot.day >= 7 || R.hot.day > S.day) {
+    if (!R.hot || performance.now() - R.hot.at > 20000 || R.hot.day > S.day) {
       const all = [];
       for (const x of GOOD_IDS) for (const r of Object.keys(REGIONS)) all.push({ g: x, r, k: G.sellPrice(x, r) / GOODS[x].price });
-      R.hot = { day: S.day, list: all.sort((a, b) => b.k - a.k).slice(0, 8) };
+      R.hot = { day: S.day, at: performance.now(), list: all.sort((a, b) => b.k - a.k).slice(0, 8) };
     }
     const hot = R.hot.list.map(x => ({ ...x, k: G.sellPrice(x.g, x.r) / GOODS[x.g].price }));
-    h += `<h3>Hottest markets <span class="r dim">updated weekly</span></h3>` + hot.map(x => `<div class="row click" data-act="mk-pick" data-g="${x.g}" style="padding:4px 0;cursor:pointer"><span class="ic">${GOODS[x.g].icon}</span><span class="grow">${esc(GOODS[x.g].name)} <span class="dim">· ${esc(REGIONS[x.r].name)}</span></span><span class="mono good">${pct(x.k - 1)}</span></div>`).join('');
+    h += `<h3>Hottest markets <span class="r dim">re-ranked every 20 s</span></h3>` + hot.map(x => `<div class="row click" data-act="mk-pick" data-g="${x.g}" style="padding:4px 0;cursor:pointer"><span class="ic">${GOODS[x.g].icon}</span><span class="grow">${esc(GOODS[x.g].name)} <span class="dim">· ${esc(REGIONS[x.r].name)}</span></span><span class="mono good">${pct(x.k - 1)}</span></div>`).join('');
     return h + '</div>';
   },
   rivals() {
@@ -791,7 +792,7 @@ function cityPanel(c) {
     h += `<h3>Stock &amp; sales <span class="r"><button class="btn sm" data-act="buy-menu" data-c="${c.id}">Buy goods</button></span></h3>`;
     if (!goods.length) h += `<p class="muted">Nothing in the warehouse yet.</p>`;
     else {
-      h += `<table><tr><th>Good</th><th class="n">Qty</th><th class="n">Price</th><th></th><th title="Sell automatically every day">Auto</th><th title="Never sell or ship below this">Keep</th></tr>`;
+      h += `<table class="stock"><colgroup><col><col style="width:54px"><col style="width:58px"><col style="width:${goods.some(g => COMMISSION[g]) ? 132 : 52}px"><col style="width:40px"><col style="width:66px"></colgroup><tr><th>Good</th><th class="n">Qty</th><th class="n">Price</th><th></th><th title="Sell automatically every day">Auto</th><th title="Never sell or ship below this">Keep</th></tr>`;
       for (const g of goods) {
         const q = site.inv[g] || 0, sellQ = Math.floor(q - (site.keep[g] || 0));
         const quote = sellQ >= 1 ? `Sell ${num(sellQ)} for about ${money(G.quoteSell(g, c.region, sellQ))} (big sales push the price down)` : 'Nothing above your keep level to sell';
@@ -900,7 +901,7 @@ function plantModal(cid) {
   for (const g of list) {
     const Gd = GOODS[g], ok = unl.has(g), rate = G.plantRate(cid, g, 1), cost = G.plantCostAt(g, cid);
     const up = G.UPKEEP_T[Gd.tier] * c.wage, outQ = Gd.out * rate;
-    const outVal = G.steadyPrice(g, c.region, Gd.digital ? 0 : outQ) * outQ;
+    const outVal = G.steadyPrice(g, c.region, outQ) * outQ;
     const ins = Object.entries(Gd.inputs);
     const own = outVal - ins.reduce((a, [i, q]) => a + G.sellPrice(i, c.region) * q * rate, 0) - up;
     const bought = outVal - ins.reduce((a, [i, q]) => a + G.steadyBuyPrice(i, c.region, q * rate) * q * rate, 0) - up;
@@ -932,7 +933,8 @@ function buyModal(cid) {
 
 function routeModal(v) {
   const S = W.S, sites = Object.keys(S.sites);
-  const st = R.route = v ? { id: v.id, t: v.t, a: v.a || sites[0], b: v.b || sites.find(x => x !== v.a), la: [...v.la], lb: [...v.lb], full: v.full } : { id: null, t: null, a: sites[0], b: sites[1], la: [], lb: [], full: true };
+  const src = v?.pending || v;
+  const st = R.route = v ? { id: v.id, t: v.t, a: src.a || sites[0], b: src.b || sites.find(x => x !== src.a), la: [...src.la], lb: [...src.lb], full: src.full } : { id: null, t: null, a: sites[0], b: sites[1], la: [], lb: [], full: true };
   // Goods order is fixed per site when first shown, so ticking boxes or switching vehicle never reshuffles the list.
   const order = {};
   const render = () => {
@@ -951,7 +953,9 @@ function routeModal(v) {
       <label style="display:flex;gap:8px;align-items:center;margin-top:12px"><input type="checkbox" class="toggle" data-act="rt-full" ${st.full ? 'checked' : ''}> Wait for a full load before leaving (max 12 days)</label>
       <p id="rtest" class="muted"></p>
       <div class="acts"><button class="btn" data-act="close-modal">Cancel</button><button class="btn p" data-act="rt-save" id="rtsave">${st.id ? 'Save route' : 'Buy & dispatch'}</button></div>`;
+    const keep = [$('#mc').scrollTop, ...[...document.querySelectorAll('#mc .pick')].map(e => e.scrollTop)];
     openModal({ type: 'route' }, h);
+    $('#mc').scrollTop = keep[0]; document.querySelectorAll('#mc .pick').forEach((e, i) => { e.scrollTop = keep[i + 1] || 0; });
     estimate();
   };
   const estimate = () => {
@@ -1057,8 +1061,8 @@ const CHANGE = {
   'mk-good': (d, el) => { R.mkGood = el.value; },
   'rt-a': (d, el) => { R.route.a = el.value; R.route.la = []; R.routeRender(); },
   'rt-b': (d, el) => { R.route.b = el.value; R.route.lb = []; R.routeRender(); },
-  'rt-g': (d, el) => { const l = R.route[d.side]; const k = l.indexOf(d.g); if (el.checked && k < 0) l.push(d.g); if (!el.checked && k >= 0) l.splice(k, 1); },
-  'rt-full': (d, el) => { R.route.full = el.checked; }
+  'rt-g': (d, el) => { const l = R.route[d.side]; const k = l.indexOf(d.g); if (el.checked && k < 0) l.push(d.g); if (!el.checked && k >= 0) l.splice(k, 1); R.routeEstimate(); },
+  'rt-full': (d, el) => { R.route.full = el.checked; R.routeEstimate(); }
 };
 document.addEventListener('click', e => {
   const t = e.target.closest('[data-act]');
