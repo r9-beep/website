@@ -29,7 +29,7 @@ const lvlUpkeep = l => 1 + (l - 1) * 0.75;
 export function newGame({ name, color, hq, difficulty }) {
   const D = DIFFICULTY[difficulty] || DIFFICULTY.tycoon;
   const S = {
-    v: 1, name, color, hq, difficulty, t: 0, day: 0, speed: 2,
+    v: SAVE_VERSION, name, color, hq, difficulty, t: 0, day: 0, speed: 2,
     cash: D.cash, loan: 0, overdrawn: 0, over: false, won: false,
     sites: {}, deps: {}, veh: [], vehSeq: 1, facSeq: 1,
     res: { done: ['basic'], cur: null, prog: 0 },
@@ -54,6 +54,69 @@ export function newGame({ name, color, hq, difficulty }) {
 
 // ---------- Save / load ----------
 const SAVE_KEY = 'mnc-simulator-save-v1';
+export const SAVE_VERSION = 2;
+
+// Bring a save from any earlier version up to date: fill in fields added since, and add any
+// cities, deposits, goods and rivals that exist now but didn't when the game was saved.
+export function migrate(S) {
+  if (!S || typeof S !== 'object' || !S.sites || !S.deps) return null;
+  if ((S.v || 1) > SAVE_VERSION) return null; // saved by a newer build
+  const D = DIFFICULTY[S.difficulty] || DIFFICULTY.tycoon;
+  S.mkt ||= {}; S.drift ||= {};
+  for (const r of REG) { S.mkt[r] ||= {}; for (const g of GOOD_IDS) if (!Number.isFinite(S.mkt[r][g])) S.mkt[r][g] = 0; }
+  for (const g of GOOD_IDS) if (!Number.isFinite(S.drift[g])) S.drift[g] = 1;
+  // Deposits: keep existing ownership, match by good, pick up new deposits, slots and richness.
+  for (const c of CITIES) {
+    const old = S.deps[c.id] || [];
+    S.deps[c.id] = c.deposits.map(([g, n, rich]) => {
+      const d = old.find(x => x.g === g) || { g, slots: [] };
+      d.rich = rich;
+      while (d.slots.length < n) d.slots.push({ o: null, lvl: 1, inv: 0 });
+      return d;
+    });
+  }
+  // Slots whose owner no longer exists (or that point at unknown rivals) become free again.
+  const live = new Set(['P', ...(S.rivals || []).map(r => r.id)]);
+  for (const deps of Object.values(S.deps)) for (const d of deps) for (const sl of d.slots) if (sl.o && !live.has(sl.o)) Object.assign(sl, { o: null, lvl: 1, inv: 0 });
+  for (const [cid, site] of Object.entries(S.sites)) {
+    if (!CITY[cid]) { delete S.sites[cid]; continue; }
+    site.inv ||= {}; site.sell ||= {}; site.keep ||= {}; site.fac ||= []; site.wh ||= 1; site.inv$ ??= 0;
+    for (const g of Object.keys(site.inv)) if (!GOODS[g]) delete site.inv[g];
+    site.fac = site.fac.filter(f => GOODS[f.g]);
+    site.seen ||= [...new Set([...Object.keys(site.inv), ...Object.keys(site.sell).filter(g => site.sell[g])])];
+  }
+  S.veh = (S.veh || []).filter(v => VEHICLES[v.t]);
+  for (const v of S.veh) {
+    v.cargo ||= {}; v.la ||= []; v.lb ||= [];
+    if (v.inv == null) v.inv = v.comm && GOODS[v.comm] ? GOODS[v.comm].price + commissionFee(v.comm) : VEHICLES[v.t].cost;
+    if (v.st === 'move' && !(v.from && v.to)) { v.from = v.at === 0 ? v.a : v.b; v.to = v.at === 0 ? v.b : v.a; }
+    if (v.st !== 'move' && !v.here) v.here = (v.at === 0 ? v.a : v.b) || v.a;
+    v.costD ??= 0; v.moveD ??= 0;
+  }
+  // Rivals added to the game since this save start with a home foothold, scaled to the game's age.
+  S.rivals ||= [];
+  for (const r of RIVALS) if (!S.rivals.some(x => x.id === r.id) && !(S.takenOver || []).includes(r.id)) {
+    const rv = { id: r.id, cash: 14e6 * D.rival * (1 + (S.day || 0) / 730), lines: [], tech: 1, next: (S.day || 0) + 10, invested: 0, hist: [] };
+    S.rivals.push(rv);
+    const prev = W.S; W.S = S; for (let k = 0; k < 2; k++) rivalBuyDeposit(rv, true); W.S = prev;
+  }
+  for (const rv of S.rivals) { rv.tech = Math.min(rv.tech || 1, 4); rv.lines ||= []; }
+  // Ledger: the old catch-all 'other' was grants and asset sales — neither is profit.
+  S.ledger = (S.ledger || []).map(d => { if (d.other) { d.disposal = (d.disposal || 0) + d.other; delete d.other; } return d; });
+  S.today ||= {}; if (S.today.other) { S.today.disposal = (S.today.disposal || 0) + S.today.other; delete S.today.other; }
+  while (S.ledger.length > LEDGER_DAYS) S.ledger.shift();
+  S.res ||= { done: ['basic'], cur: null, prog: 0 };
+  S.res.done = S.res.done.filter(id => RESEARCH_BY[id]);
+  if (S.res.cur && !RESEARCH_BY[S.res.cur]) S.res.cur = null;
+  S.fx ||= []; S.offers = (S.offers || []).filter(o => S.rivals.some(r => r.id === o.rid) && S.deps[o.cid]?.[o.di]?.slots[o.si]);
+  S.goals ||= {}; S.made ||= {}; S.stats ||= { sales: 0, peak: 0 }; S.hist ||= []; S.news ||= []; S.subs ||= [];
+  // Net-worth history used to store rival values as an array in RIVALS order; now it's keyed by id.
+  for (const h of S.hist) if (Array.isArray(h.r)) h.r = Object.fromEntries(h.r.map((v, k) => [RIVALS[k]?.id, v]).filter(([id]) => id));
+  S.leadDays ??= 0;
+  if (!Number.isFinite(S.cash)) S.cash = 0;
+  S.v = SAVE_VERSION;
+  return S;
+}
 export function save() {
   try { localStorage.setItem(SAVE_KEY, JSON.stringify(W.S)); return true; } catch { return false; }
 }
@@ -63,12 +126,13 @@ export function saveInfo() {
 }
 export function load() {
   try {
-    const S = JSON.parse(localStorage.getItem(SAVE_KEY));
-    if (!S || S.v !== 1) return null;
+    const S = migrate(JSON.parse(localStorage.getItem(SAVE_KEY)));
+    if (!S) return null;
     // Canal closures belong to the saved game, not whatever game was running before.
     for (const ch of Object.keys(Sea.CHANNELS)) Sea.setBlocked(ch, false);
     for (const f of S.fx) if (f.type === 'block') Sea.setBlocked(f.channel, true);
     W.S = S; routes.clear();
+    save(); // store it in the current format straight away
     return S;
   } catch { return null; }
 }
@@ -564,6 +628,7 @@ export function acquireRival(id) {
   S.subs ||= [];
   for (const l of rv.lines) S.subs.push({ ...l, from: id, inv: BUILD_COST[GOODS[l.g].tier] });
   S.rivals.splice(k, 1);
+  (S.takenOver ||= []).push(id);
   S.offers = S.offers.filter(o => o.rid !== id);
   S.acquired = (S.acquired || 0) + 1;
   news(`${S.name} completes a ${money(price)} takeover of ${info.name}, gaining ${slots} resource sites and ${rv.lines.length} product lines.`);

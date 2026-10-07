@@ -725,7 +725,7 @@ const LEFT = {
 
 function spark() {
   const H = W.S.hist; if (H.length < 2) return '<div class="muted spark" style="display:grid;place-items:center">Building history…</div>';
-  const w = 320, h = 70, all = H.flatMap(p => [p.w, ...p.r]), max = Math.max(...all, 1), min = Math.min(0, ...all);
+  const w = 320, h = 70, all = H.flatMap(p => [p.w, ...Object.values(p.r || {})]), max = Math.max(...all, 1), min = Math.min(0, ...all);
   const X = i => i / (H.length - 1) * w, Y = v => h - 4 - (v - min) / (max - min) * (h - 8);
   const line = (vals, color, wdt, op) => `<polyline fill="none" stroke="${color}" stroke-width="${wdt}" stroke-opacity="${op}" stroke-linejoin="round" points="${vals.map((v, i) => `${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join(' ')}"/>`;
   let s = `<svg class="spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">`;
